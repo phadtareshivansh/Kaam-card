@@ -174,7 +174,7 @@ const ALLOWED_SCHEME_URLS = {
   delhiBocw: "https://labour.delhi.gov.in/labour/delhi-building-and-other-construction-workers-welfare-board"
 };
 
-const SCHEMES = [
+const FALLBACK_SCHEMES = [
   {
     id: "pmSym",
     name: "PM Shram Yogi Maandhan",
@@ -253,10 +253,11 @@ const SCHEMES = [
 // SIMULATED: this is an in-memory phone-keyed demo session. No password auth,
 // no localStorage token, and no raw transaction persistence are used.
 const state = {
-  route: "login",
+  route: "landing",
   session: null,
   phoneDraft: "",
   theme: getInitialTheme(),
+  lang: "en",
   details: {
     age: 29,
     occupation: "Delivery worker",
@@ -266,8 +267,126 @@ const state = {
   profile: null,
   matches: [],
   shareOpen: false,
-  copied: false
+  copied: false,
+  consentGiven: false,
+  auditLogs: [],
+  schemeQuery: "",
+  guidanceSchemeId: null,
+  guidanceStep: 1,
+  schemesDb: []
 };
+
+const TRANSLATIONS = {
+  // Brand / Navigation
+  "Kaam Card": "काम कार्ड",
+  "Dashboard": "डैशबोर्ड",
+  "Connect Data": "डेटा कनेक्ट करें",
+  "Income Analytics": "आय विश्लेषण",
+  "Welfare Schemes": "कल्याणकारी योजनाएं",
+  "General": "सामान्य",
+  "Insights": "इनसाइट्स",
+  "Secure & Private": "सुरक्षित और निजी",
+  "Parsed locally. Zero network leaks.": "स्थानीय रूप से पार्स किया गया। कोई डेटा लीक नहीं।",
+  "Purge Session Data": "सत्र डेटा साफ़ करें",
+  "For you": "आपके लिए",
+  "SECURE SANDBOX": "सुरक्षित सैंडबॉक्स",
+
+  // Landing page
+  "Go from daily wages to safe public welfare benefits": "दैनिक मजदूरी से सुरक्षित सरकारी कल्याण योजनाओं तक",
+  "Verify your eligibility instantly and register on official portals without middleman risk.": "बिचौलियों के जोखिम के बिना अपनी पात्रता तुरंत सत्यापित करें और आधिकारिक पोर्टलों पर पंजीकरण करें।",
+  "Verify eligibility & register": "पात्रता सत्यापित करें और पंजीकरण करें",
+  "Punchlist's Quality": "गुणवत्ता आश्वासन",
+  "Go from design to build without losing crucial details.": "महत्वपूर्ण विवरण खोए बिना डिज़ाइन से निर्माण तक जाएँ।",
+  "Security Audit": "सुरक्षा ऑडिट",
+  "No data is shared or stored without explicit consent.": "स्पष्ट सहमति के बिना कोई डेटा साझा या संग्रहीत नहीं किया जाता है।",
+
+  // Login
+  "Log In & Access Portal": "लॉग इन और पोर्टल एक्सेस",
+  "Enter mobile number": "अपना मोबाइल नंबर दर्ज करें",
+  "Enter 10 digit number to receive a secure OTP verification check.": "सुरक्षित ओटीपी सत्यापन प्राप्त करने के लिए 10 अंकों का नंबर दर्ज करें।",
+  "Send secure OTP link": "सुरक्षित ओटीपी लिंक भेजें",
+  "OTP Verification": "ओटीपी सत्यापन",
+  "Verify code": "कोड सत्यापित करें",
+  "Verify and continue": "सत्यापित करें और जारी रखें",
+  "Switch to light theme": "लाइट थीम पर स्विच करें",
+  "Switch to dark theme": "डार्क थीम पर स्विच करें",
+
+  // Consent / Upload
+  "Consent & Authorization": "सहमति और प्राधिकरण",
+  "Choose Bank Statement Dataset": "बैंक स्टेटमेंट डेटासेट चुनें",
+  "Continue to dashboard": "डैशबोर्ड पर जारी रखें",
+
+  // Dashboard
+  "Welcome, Worker": "स्वागत है, कार्यकर्ता",
+  "This dashboard tracks your calculated income averages and verifies matching state schemes.": "यह डैशबोर्ड आपकी आय के औसत को ट्रैक करता है और पात्रता सत्यापित करता है।",
+  "Daily earnings trend and variations": "दैनिक कमाई का रुझान और बदलाव",
+  "Daily Avg": "दैनिक औसत",
+  "Good Days": "अच्छे दिन",
+  "Bad Days": "बुरे दिन",
+  "Smart Suggestion": "स्मार्ट सुझाव",
+  "Arithmetic-based micro-savings rule": "गणित-आधारित सूक्ष्म-बचत नियम",
+  "Tied to your actual data, this habit will accumulate about": "आपके वास्तविक डेटा से जुड़ा, यह नियम लगभग संचय करेगा",
+  "low-income days.": "कम आय वाले दिन।",
+  "on days earning above": "उन दिनों में जिनकी कमाई अधिक है",
+  "Save Rs": "बचत करें रु",
+  "and cover up to": "और कवर करेगा",
+  "Welfare Matching": "कल्याण मिलान",
+  "Search matched schemes": "योजनाएं खोजें",
+  "Type scheme name...": "योजना का नाम टाइप करें...",
+  "Knowledge Resources": "ज्ञान संसाधन",
+  "Local Security Audit Trail": "स्थानीय सुरक्षा ऑडिट लॉग",
+  "Guide me & Apply": "मार्गदर्शन और आवेदन",
+  "Eligible public schemes": "पात्र सरकारी योजनाएं",
+  "matched": "योजनाएं मिलीं",
+  "low-income days": "कम आय वाले दिन",
+  "total parsed credit": "कुल पार्स की गई आय",
+  "Low-income threshold": "कम आय सीमा",
+  "Export your secure worker profile": "अपना सुरक्षित प्रोफ़ाइल एक्सपोर्ट करें",
+  "Generate a portable summary of your checked parameters. No raw bank records are saved or shared.": "अपनी पात्रता का सारांश जनरेट करें। कोई बैंक रिकॉर्ड सहेजा नहीं जाता है।",
+  "Generate Profile": "प्रोफ़ाइल जनरेट करें",
+
+  // Guidance Wizard
+  "Required documents check": "आवश्यक दस्तावेजों की जांच",
+  "Official Application Steps": "आधिकारिक आवेदन चरण",
+  "Secure portal verification redirect": "सुरक्षित पोर्टल रीडायरेक्ट",
+  "Finish": "समाप्त",
+  "Next Step": "अगला चरण",
+  "Previous Step": "पिछला चरण",
+  "Check Documents": "दस्तावेज़ जांचें",
+  "Steps & Timeline": "चरण और समय सीमा",
+  "Safe Redirect": "सुरक्षित रीडायरेक्ट",
+  "Application Stepper Guide": "आवेदन चरणबद्ध गाइड",
+  "No documents are uploaded or stored.": "कोई दस्तावेज़ अपलोड या सहेजा नहीं जाता है।",
+  "Close": "बंद करें",
+  "Verified Portal Redirect": "सत्यापित पोर्टल रीडायरेक्ट",
+  
+  // Scheme Names & Details
+  "Atal Pension Yojana": "अटल पेंशन योजना",
+  "Pension scheme for unorganized workers providing guaranteed minimum pension of Rs. 1,000 to Rs. 5,000 per month after age 60.": "असंगठित श्रमिकों के लिए पेंशन योजना जो 60 वर्ष की आयु के बाद प्रति माह 1,000 से 5,000 रुपये की न्यूनतम पेंशन प्रदान करती है।",
+  "e-Shram Registration": "ई-श्रम पंजीकरण",
+  "National database for unorganized workers to facilitate social security benefits and direct benefit transfers.": "असंगठित श्रमिकों के लिए सामाजिक सुरक्षा लाभ और प्रत्यक्ष लाभ हस्तांतरण की सुविधा प्रदान करने वाला राष्ट्रीय डेटाबेस।",
+  "Pradhan Mantri Shram Yogi Maan-dhan": "प्रधानमंत्री श्रम योगी मान-धन",
+  "Voluntary pension scheme for unorganized workers with monthly contribution matching by Central Government.": "असंगठित श्रमिकों के लिए स्वैच्छिक पेंशन योजना जिसमें केंद्र सरकार द्वारा मासिक योगदान का मिलान किया जाता है।",
+  "Ayushman Bharat PM-JAY": "आयुष्मान भारत पीएम-जेएवाई",
+  "Free health insurance coverage up to Rs. 5 Lakhs per family per year for secondary and tertiary care hospitalization.": "माध्यमिक और तृतीयक देखभाल अस्पताल में भर्ती के लिए प्रति वर्ष प्रति परिवार 5 लाख रुपये तक का मुफ्त स्वास्थ्य बीमा कवरेज।",
+  "PM SVANidhi Scheme": "पीएम स्वनिधि योजना",
+  "Special micro-credit facility for street vendors to access affordable working capital loans for business revival.": "व्यवसाय पुनरुद्धार के लिए किफायती कार्यशील पूंजी ऋण तक पहुंच बनाने के लिए स्ट्रीट वेंडरों के लिए विशेष सूक्ष्म-ऋण सुविधा।"
+};
+
+function t(text) {
+  if (state.lang === "hi") {
+    const trimmed = String(text || "").trim();
+    if (TRANSLATIONS[trimmed]) {
+      return TRANSLATIONS[trimmed];
+    }
+  }
+  return text;
+}
+
+function addAuditLog(message) {
+  const time = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  state.auditLogs.unshift({ time, message });
+}
 
 function formatMoney(value) {
   return `Rs ${Math.round(value).toLocaleString("en-IN")}`;
@@ -475,8 +594,8 @@ function computeProfile(transactions) {
   };
 }
 
-function getAllowedUrl(id) {
-  const candidate = ALLOWED_SCHEME_URLS[id];
+function getAllowedUrl(scheme) {
+  const candidate = scheme.verifiedUrl || ALLOWED_SCHEME_URLS[scheme.id];
   if (!candidate) return null;
 
   try {
@@ -498,32 +617,42 @@ function schemeScore(scheme, details, profile) {
   const monthlyIncome = profile.monthlyIncomeEstimate;
   const stateName = details.state;
 
-  if (age >= scheme.minAge && age <= scheme.maxAge) {
-    reasons.push(`age ${age} is within ${scheme.minAge}-${scheme.maxAge}`);
+  const minAge = scheme.eligibility ? scheme.eligibility.minAge : scheme.minAge;
+  const maxAge = scheme.eligibility ? scheme.eligibility.maxAge : scheme.maxAge;
+  const maxIncome = scheme.eligibility ? scheme.eligibility.maxIncome : scheme.maxMonthlyIncome;
+  const occupations = scheme.eligibility ? scheme.eligibility.occupations : scheme.occupations;
+  const states = scheme.eligibility ? scheme.eligibility.states : scheme.states;
+
+  if (age >= minAge && age <= maxAge) {
+    reasons.push(`age ${age} is within ${minAge}-${maxAge}`);
   } else {
-    misses.push(`age must be ${scheme.minAge}-${scheme.maxAge}`);
+    misses.push(`age must be ${minAge}-${maxAge}`);
   }
 
-  if (monthlyIncome <= scheme.maxMonthlyIncome) {
-    reasons.push(`estimated monthly income is below ${formatMoney(scheme.maxMonthlyIncome)}`);
+  if (maxIncome === null || maxIncome === undefined || monthlyIncome <= maxIncome) {
+    if (maxIncome) {
+      reasons.push(`estimated monthly income is below ${formatMoney(maxIncome)}`);
+    } else {
+      reasons.push(`no income cap holds`);
+    }
   } else {
-    misses.push(`income is above ${formatMoney(scheme.maxMonthlyIncome)}`);
+    misses.push(`income is above ${formatMoney(maxIncome)}`);
   }
 
-  if (scheme.occupations.includes(occupation)) {
+  if (!occupations || occupations.length === 0 || occupations.includes(occupation)) {
     reasons.push(`${occupation.toLowerCase()} is covered`);
   } else {
-    misses.push(`occupation must match: ${scheme.occupations.join(", ")}`);
+    misses.push(`occupation must match: ${occupations.join(", ")}`);
   }
 
-  if (!scheme.states || scheme.states.includes(stateName)) {
-    if (scheme.states) reasons.push(`${stateName} state matches`);
+  if (!states || states.length === 0 || states.includes(stateName)) {
+    if (states && states.length > 0) reasons.push(`${stateName} state matches`);
   } else {
-    misses.push(`state must be ${scheme.states.join(" or ")}`);
+    misses.push(`state must be ${states.join(" or ")}`);
   }
 
   const passed = reasons.length;
-  const required = 3 + (scheme.states ? 1 : 0);
+  const required = 3 + (states && states.length > 0 ? 1 : 0);
   return {
     ...scheme,
     passed,
@@ -537,8 +666,8 @@ function schemeScore(scheme, details, profile) {
 
 function matchSchemes(details, profile) {
   // SIMPLIFIED: this hackathon matcher uses transparent arithmetic rules only.
-  // It is not an official eligibility determination or ML model.
-  return SCHEMES.map((scheme) => schemeScore(scheme, details, profile))
+  const schemesList = state.schemesDb && state.schemesDb.length > 0 ? state.schemesDb : FALLBACK_SCHEMES;
+  return schemesList.map((scheme) => schemeScore(scheme, details, profile))
     .sort((a, b) => b.rank - a.rank || a.name.localeCompare(b.name));
 }
 
@@ -560,12 +689,12 @@ function processCsv(csvText, sourceMeta = {}) {
 
   if (profile) {
     state.matches = matchSchemes(state.details, profile);
+    addAuditLog(`Income profile computed successfully.`);
+    addAuditLog(`Statement parsed: ${state.parseResult.validRows} valid rows, ${state.parseResult.errors.length} skipped.`);
   } else {
     state.matches = [];
+    addAuditLog(`Failed to compute income profile: no valid transactions.`);
   }
-
-  // Raw transaction rows are intentionally discarded here. The app retains only
-  // aggregate daily income, parse counts, and issue summaries for this session.
 }
 
 function dateLabel(iso) {
@@ -579,62 +708,100 @@ function currentName() {
 }
 
 function renderShell(content, active = "Dashboard", layout = "compact") {
+  const isLanding = state.route === "landing";
+  const hasSession = !!state.session;
   app.innerHTML = `
-    <div class="app-shell">
+    <div class="app-shell ${isLanding ? "landing-shell" : ""} ${hasSession ? "has-sidebar" : ""}">
       <div class="interactive-grid-pattern" aria-hidden="true"></div>
+      
+      <!-- Left Sidebar (Desktop sidebar) -->
       <aside class="side-rail" aria-label="Kaam Card navigation">
         <div class="side-rail__head">
-          <div class="brand">${brandMark()}<span>Kaam Card</span></div>
+          <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>${t("Kaam Card")}</span></div>
           ${renderThemeToggle("rail")}
         </div>
+        
         <nav class="rail-nav">
+          <div class="nav-section-label" style="padding: 10px 12px 4px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em;">${t("General")}</div>
           ${navButton("Dashboard", ICONS.home, active === "Dashboard")}
-          ${navButton("Transactions", ICONS.file, active === "Transactions")}
-          ${navButton("Insights", ICONS.bars, active === "Insights")}
-          ${navButton("Schemes", ICONS.schemes, active === "Schemes")}
+          ${navButton("Connect Data", ICONS.upload, active === "Transactions")}
+          
+          <div class="nav-section-label" style="padding: 10px 12px 4px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; margin-top: 10px;">${t("Insights")}</div>
+          ${navButton("Income Analytics", ICONS.bars, active === "Insights")}
+          ${navButton("Welfare Schemes", ICONS.schemes, active === "Schemes")}
         </nav>
+        
         <div class="rail-foot">
-          <div class="mini-row" style="gap:8px">${ICONS.shield}<span>No Aadhaar, PAN, or bank account numbers.</span></div>
-          <div class="mini-row" style="gap:8px">${ICONS.wallet}<span>Session-only demo data.</span></div>
+          <div class="sidebar-promo-card" style="position: relative; padding: 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); margin-top: 15px;">
+            <span class="promo-close" data-close-promo style="position: absolute; top: 6px; right: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; color: var(--muted);">×</span>
+            <div class="promo-icon" style="margin-bottom: 8px; color: var(--green);">${ICONS.shield}</div>
+            <h4 style="margin: 0 0 4px 0; font-size: 0.88rem; font-weight: 800;">Secure & Private</h4>
+            <p class="copy" style="font-size: 0.76rem; line-height: 1.35;">Parsed locally. Zero network leaks.</p>
+          </div>
+          ${hasSession ? `<button class="purge-session-btn" type="button" data-purge-session style="margin-top: 12px; width: 100%">${ICONS.alert} Purge Session Data</button>` : ""}
         </div>
       </aside>
+      
+      <!-- Main Content -->
       <main class="main-wrap">
         <div class="phone-stage ${layout === "wide" ? "is-wide" : ""}">
           <div class="phone-card">${content}</div>
         </div>
       </main>
+      
+      <!-- Right Sidebar -->
+      ${hasSession && !isLanding ? renderRightSidebar() : ""}
     </div>
   `;
   bindShellNav();
   bindThemeToggle();
+  if (hasSession) {
+    bindPurgeSession();
+    bindRightSidebarEvents();
+  }
+  bindGoHome();
+  bindPromoClose();
 }
 
 function brandMark() {
-  return `<span class="brand-mark" aria-hidden="true">${ICONS.wallet}</span>`;
+  return `<div class="brand-logo-glass" aria-hidden="true"></div>`;
 }
 
 function navButton(label, icon, active) {
-  return `<button type="button" class="${active ? "is-active" : ""}" data-nav="${escapeHtml(label)}">${icon}<span>${escapeHtml(label)}</span></button>`;
+  return `<button type="button" class="${active ? "is-active" : ""}" data-nav="${escapeHtml(label)}">${icon}<span>${escapeHtml(t(label))}</span></button>`;
+}
+
+function renderLangToggle() {
+  const isHi = state.lang === "hi";
+  return `
+    <div class="lang-switcher" role="radiogroup" aria-label="Select Language">
+      <button class="lang-btn ${!isHi ? 'is-active' : ''}" data-lang="en" type="button" aria-label="English">EN</button>
+      <button class="lang-btn ${isHi ? 'is-active' : ''}" data-lang="hi" type="button" aria-label="Hindi">हिं</button>
+    </div>
+  `;
 }
 
 function renderThemeToggle(variant = "") {
   const isDark = state.theme === "dark";
   const label = isDark ? "Switch to light theme" : "Switch to dark theme";
   return `
-    <button
-      class="theme-toggle ${variant ? `theme-toggle--${variant}` : ""}"
-      type="button"
-      data-theme-toggle
-      aria-label="${label}"
-      aria-pressed="${isDark}"
-      title="${label}"
-    >
-      <span class="theme-toggle__track" aria-hidden="true">
-        <span class="theme-toggle__icon theme-toggle__icon--sun">${ICONS.sun}</span>
-        <span class="theme-toggle__icon theme-toggle__icon--moon">${ICONS.moon}</span>
-        <span class="theme-toggle__thumb"></span>
-      </span>
-    </button>
+    <div class="header-controls">
+      ${renderLangToggle()}
+      <button
+        class="theme-toggle ${variant ? `theme-toggle--${variant}` : ""}"
+        type="button"
+        data-theme-toggle
+        aria-label="${label}"
+        aria-pressed="${isDark}"
+        title="${label}"
+      >
+        <span class="theme-toggle__track" aria-hidden="true">
+          <span class="theme-toggle__icon theme-toggle__icon--sun">${ICONS.sun}</span>
+          <span class="theme-toggle__icon theme-toggle__icon--moon">${ICONS.moon}</span>
+          <span class="theme-toggle__thumb"></span>
+        </span>
+      </button>
+    </div>
   `;
 }
 
@@ -653,6 +820,17 @@ function bindThemeToggle() {
     button.addEventListener("click", () => {
       setTheme(state.theme === "dark" ? "light" : "dark");
       render();
+    });
+  });
+
+  document.querySelectorAll("[data-lang]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const newLang = btn.getAttribute("data-lang");
+      if (state.lang !== newLang) {
+        state.lang = newLang;
+        addAuditLog(`Language switched to ${newLang === 'hi' ? 'Hindi (हिन्दी)' : 'English'}`);
+        render();
+      }
     });
   });
 }
@@ -682,24 +860,24 @@ function renderLogin() {
   renderShell(`
     <section class="screen" aria-labelledby="login-title">
       <div class="top-bar">
-        <div class="brand">${brandMark()}<span>Kaam Card</span></div>
+        <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>${t("Kaam Card")}</span></div>
         ${renderThemeToggle("compact")}
       </div>
-      <h1 class="screen-title" id="login-title">Welcome</h1>
-      <p class="copy">Start with your mobile number. This demo keeps the session in memory only.</p>
+      <h1 class="screen-title" id="login-title">${t("Log In & Access Portal")}</h1>
+      <p class="copy">${t("Start with your mobile number. This demo keeps the session in memory only.")}</p>
       <form class="auth-form" id="phone-form">
-        <label class="field-label" for="phone">Mobile number</label>
+        <label class="field-label" for="phone">${t("Mobile number")}</label>
         <div class="phone-input-row">
           <select aria-label="Country code">
             <option>+91</option>
           </select>
-          <input id="phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="Enter mobile number" value="${escapeHtml(state.phoneDraft)}">
+          <input id="phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="${t("Enter mobile number")}" value="${escapeHtml(state.phoneDraft)}">
         </div>
-        <button class="primary-btn" type="submit">Send OTP</button>
+        <button class="primary-btn" type="submit">${t("Send secure OTP link")}</button>
         <div class="divider">or</div>
-        <button class="secondary-btn" type="button" data-skip-demo>${ICONS.upload} Continue with sample data</button>
+        <button class="secondary-btn" type="button" data-skip-demo>${ICONS.upload} ${t("Continue with sample data")}</button>
       </form>
-      <div class="privacy-line">${ICONS.shield}<span>Your data stays in this browser session. We do not ask for Aadhaar, PAN, or bank account numbers.</span></div>
+      <div class="privacy-line">${ICONS.shield}<span>${t("Your data stays in this browser session. We do not ask for Aadhaar, PAN, or bank account numbers.")}</span></div>
     </section>
   `, "Dashboard");
 
@@ -718,6 +896,8 @@ function renderLogin() {
   document.querySelector("[data-skip-demo]").addEventListener("click", () => {
     state.phoneDraft = "9876543210";
     state.session = { phone: state.phoneDraft, startedAt: Date.now() };
+    state.auditLogs = [];
+    addAuditLog(`Demo session started.`);
     processCsv(SAMPLE_DATASETS[0].csv, SAMPLE_DATASETS[0]);
     state.route = "dashboard";
     render();
@@ -729,12 +909,12 @@ function renderOtp() {
     <section class="screen" aria-labelledby="otp-title">
       <div class="step-header">
         <button class="icon-btn" type="button" data-back aria-label="Back">${ICONS.back}</button>
-        <h1 id="otp-title">Enter OTP</h1>
+        <h1 id="otp-title">${t("OTP Verification")}</h1>
         ${renderThemeToggle("compact")}
       </div>
       <div class="panel" style="text-align:center">
-        <p class="copy" style="color:var(--blue); font-weight:760">OTP simulated for demo</p>
-        <p class="copy" style="margin-top:10px">We sent an OTP to<br><strong style="color:var(--ink)">+91 ${escapeHtml(state.phoneDraft)}</strong></p>
+        <p class="copy" style="color:var(--blue); font-weight:760">${t("OTP simulated for demo")}</p>
+        <p class="copy" style="margin-top:10px">${t("We sent an OTP to")}<br><strong style="color:var(--ink)">+91 ${escapeHtml(state.phoneDraft)}</strong></p>
         <form id="otp-form">
           <div class="otp-grid" aria-label="OTP digits">
             <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 1">
@@ -742,8 +922,8 @@ function renderOtp() {
             <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 3">
             <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 4">
           </div>
-          <p class="copy">Any 4 digits will work in this prototype.</p>
-          <button class="primary-btn" type="submit">Verify and continue</button>
+          <p class="copy">${t("Any 4 digits will work in this prototype.")}</p>
+          <button class="primary-btn" type="submit">${t("Verify and continue")}</button>
         </form>
       </div>
     </section>
@@ -766,55 +946,83 @@ function renderOtp() {
     event.preventDefault();
     // SIMULATED: OTP verification is skipped for demo speed.
     state.session = { phone: state.phoneDraft, startedAt: Date.now() };
+    state.auditLogs = [];
+    addAuditLog(`Secure session started for +91 ******${state.phoneDraft.slice(-4)}`);
     state.route = "upload";
     render();
   });
 }
 
 function renderUpload() {
+  const isConsentChecked = state.consentGiven;
   renderShell(`
     <section class="screen" aria-labelledby="upload-title">
       <div class="step-header">
         <button class="icon-btn" type="button" data-back aria-label="Back">${ICONS.back}</button>
-        <h1 id="upload-title">Upload transactions</h1>
+        <h1 id="upload-title">${t("Connect Data")}</h1>
         ${renderThemeToggle("compact")}
       </div>
-      <p class="copy">Use a CSV with <strong>date, amount, direction</strong>. Links inside files are treated as plain text.</p>
-      <label class="upload-zone" id="drop-zone">
-        <input id="csv-file" type="file" accept=".csv,text/csv">
-        <span>${ICONS.upload}<strong>Tap to upload CSV</strong><small>or drag and drop. CSV only, up to 5 MB.</small></span>
+      
+      <!-- Consent Gate Section -->
+      <section class="panel consent-panel" aria-labelledby="consent-title" style="margin-bottom: 16px;">
+        <h2 id="consent-title" style="display: flex; align-items: center; gap: 8px; margin: 0 0 8px 0; font-size: 0.98rem;">
+          ${ICONS.shield} <span>${t("Consent & Authorization")}</span>
+        </h2>
+        <div class="consent-box-container">
+          <p class="copy" style="font-size: 0.84rem; margin-bottom: 10px;">
+            ${state.lang === "hi" ?
+              `काम कार्ड आपका सुरक्षित रिकॉर्ड बनाने के लिए स्टेटमेंट को स्थानीय रूप से पार्स करता है। आगे बढ़ने से आप निम्न पर सहमत हैं:` :
+              `Kaam Card parses statement details locally to build your portable record. By continuing, you agree to:`
+            }
+          </p>
+          <ul class="consent-list" style="margin: 0 0 12px 0; padding-left: 18px; font-size: 0.78rem; color: var(--muted); line-height: 1.4;">
+            <li><strong>${state.lang === "hi" ? "स्थानीय पार्सिंग:" : "Local Parsing:"}</strong> ${state.lang === "hi" ? "केवल ब्राउज़र मेमोरी में निष्पादित।" : "Executed strictly in-browser memory."}</li>
+            <li><strong>${state.lang === "hi" ? "डेटा न्यूनीकरण:" : "Data Minimization:"}</strong> ${state.lang === "hi" ? "दैनिक गणना के बाद कच्चा डेटा हटा दिया जाता है।" : "Raw lines are discarded after daily stats computation."}</li>
+            <li><strong>${state.lang === "hi" ? "कोई आईडी संग्रह नहीं:" : "Zero ID Collection:"}</strong> ${state.lang === "hi" ? "हम कभी भी आधार, पैन या बैंक नंबर एकत्र नहीं करते हैं।" : "We never collect Aadhaar, PAN, or full bank numbers."}</li>
+          </ul>
+          <label class="consent-checkbox-label" style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 0.84rem; font-weight: 700; color: var(--ink);">
+            <input type="checkbox" id="consent-check" ${isConsentChecked ? "checked" : ""} style="margin-top: 2px;">
+            <span>${t("I authorize Kaam Card to parse my transaction statement.")}</span>
+          </label>
+        </div>
+      </section>
+
+      <p class="copy">${state.lang === "hi" ? "यूपीआई लेनदेन विवरण (date, amount, direction) वाली फ़ाइल चुनें।" : "Use a CSV with date, amount, direction. Links inside files are treated as plain text."}</p>
+      <label class="upload-zone ${isConsentChecked ? "" : "is-disabled"}" id="drop-zone">
+        <input id="csv-file" type="file" accept=".csv,text/csv" ${isConsentChecked ? "" : "disabled"}>
+        <span>${ICONS.upload}<strong>${t("Tap to upload CSV")}</strong><small>${t("or drag and drop. CSV only, up to 5 MB.")}</small></span>
       </label>
       <section class="panel" aria-labelledby="details-title">
-        <h2 id="details-title">Basic details for matching</h2>
+        <h2 id="details-title">${t("Basic details for matching")}</h2>
         <div class="details-grid">
           <label>
-            <span class="field-label">Age</span>
+            <span class="field-label">${t("Age")}</span>
             <input class="text-input" id="age" type="number" min="16" max="99" value="${escapeHtml(state.details.age)}">
           </label>
           <label>
-            <span class="field-label">Occupation</span>
+            <span class="field-label">${t("Occupation")}</span>
             <select class="select-input" id="occupation">
-              ${OCCUPATIONS.map((item) => `<option ${item === state.details.occupation ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
+              ${OCCUPATIONS.map((item) => `<option ${item === state.details.occupation ? "selected" : ""} value="${escapeHtml(item)}">${escapeHtml(t(item))}</option>`).join("")}
             </select>
           </label>
           <label>
-            <span class="field-label">State</span>
+            <span class="field-label">${t("State")}</span>
             <select class="select-input" id="state-select">
-              ${STATES.map((item) => `<option ${item === state.details.state ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
+              ${STATES.map((item) => `<option ${item === state.details.state ? "selected" : ""} value="${escapeHtml(item)}">${escapeHtml(t(item))}</option>`).join("")}
             </select>
           </label>
         </div>
       </section>
       <section class="panel" aria-labelledby="samples-title">
-        <h2 id="samples-title">Sample datasets</h2>
+        <h2 id="samples-title">${t("Sample datasets")}</h2>
         <div class="samples-grid">
           ${SAMPLE_DATASETS.map((sample) => `
-            <button class="sample-btn" type="button" data-sample="${escapeHtml(sample.id)}">${ICONS.file}<span>${escapeHtml(sample.name)}</span></button>
+            <button class="sample-btn" type="button" data-sample="${escapeHtml(sample.id)}" ${isConsentChecked ? "" : "disabled"}>${ICONS.file}<span>${escapeHtml(t(sample.name))}</span></button>
           `).join("")}
         </div>
       </section>
       ${state.parseResult ? renderParseStatus() : ""}
-      <button class="primary-btn" type="button" data-dashboard ${state.profile ? "" : "disabled"}>Continue to dashboard</button>
+      <button class="primary-btn" type="button" data-dashboard ${state.profile ? "" : "disabled"}>${t("Continue to dashboard")}</button>
       ${state.session ? renderBottomNav("Upload") : ""}
     </section>
   `, "Transactions", "wide");
@@ -828,9 +1036,31 @@ function renderUpload() {
   document.querySelector("#occupation").addEventListener("change", updateDetails);
   document.querySelector("#state-select").addEventListener("change", updateDetails);
 
+  const consentCheck = document.querySelector("#consent-check");
+  if (consentCheck) {
+    consentCheck.addEventListener("change", (event) => {
+      state.consentGiven = event.target.checked;
+      addAuditLog(state.consentGiven ? "Consent authorized: user agreed to browser-local transaction processing." : "Consent revoked.");
+      const fileInput = document.querySelector("#csv-file");
+      if (fileInput) fileInput.disabled = !state.consentGiven;
+      const dropZone = document.querySelector("#drop-zone");
+      if (dropZone) {
+        if (state.consentGiven) {
+          dropZone.classList.remove("is-disabled");
+        } else {
+          dropZone.classList.add("is-disabled");
+        }
+      }
+      document.querySelectorAll("[data-sample]").forEach((btn) => {
+        btn.disabled = !state.consentGiven;
+      });
+    });
+  }
+
   document.querySelectorAll("[data-sample]").forEach((button) => {
     button.addEventListener("click", () => {
       const sample = SAMPLE_DATASETS.find((item) => item.id === button.dataset.sample);
+      addAuditLog(`Loaded sample dataset: ${sample.name}`);
       processCsv(sample.csv, sample);
       state.route = "upload";
       render();
@@ -840,7 +1070,10 @@ function renderUpload() {
   const fileInput = document.querySelector("#csv-file");
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
-    if (file) readCsvFile(file);
+    if (file) {
+      addAuditLog(`Selected statement file: ${file.name}`);
+      readCsvFile(file);
+    }
   });
 
   const dropZone = document.querySelector("#drop-zone");
@@ -858,7 +1091,10 @@ function renderUpload() {
   });
   dropZone.addEventListener("drop", (event) => {
     const file = event.dataTransfer.files?.[0];
-    if (file) readCsvFile(file);
+    if (file) {
+      addAuditLog(`Dropped statement file: ${file.name}`);
+      readCsvFile(file);
+    }
   });
 
   const dashboardButton = document.querySelector("[data-dashboard]");
@@ -873,11 +1109,23 @@ function renderUpload() {
 }
 
 function updateDetails() {
+  const oldAge = state.details.age;
+  const oldOcc = state.details.occupation;
+  const oldState = state.details.state;
+
   const age = Number(document.querySelector("#age")?.value || state.details.age);
   state.details.age = Number.isFinite(age) ? age : state.details.age;
   state.details.occupation = document.querySelector("#occupation")?.value || state.details.occupation;
   state.details.state = document.querySelector("#state-select")?.value || state.details.state;
-  if (state.profile) state.matches = matchSchemes(state.details, state.profile);
+  
+  if (state.profile) {
+    state.matches = matchSchemes(state.details, state.profile);
+  }
+
+  if (oldAge !== state.details.age || oldOcc !== state.details.occupation || oldState !== state.details.state) {
+    addAuditLog(`Worker parameters updated: Age=${state.details.age}, Occupation=${state.details.occupation}, State=${state.details.state}`);
+    addAuditLog(`Re-calculated matches: ${state.matches.filter(m => m.eligible).length} schemes eligible.`);
+  }
 }
 
 function readCsvFile(file) {
@@ -963,73 +1211,176 @@ function renderDashboard(activeView = "Dashboard") {
     return;
   }
 
+  // Recalculate matches
   state.matches = matchSchemes(state.details, state.profile);
-  const profile = state.profile;
-  const eligible = state.matches.filter((item) => item.eligible);
-  const nearMatches = state.matches.filter((item) => !item.eligible).slice(0, 2);
-  const shownSchemes = [...eligible, ...nearMatches].slice(0, 6);
-  const insightsMarkup = `
-    <div>
-      ${renderIncomeChart(profile)}
-      <section class="section-topline">
-        <h2>Smart saving suggestion</h2>
-      </section>
-      ${renderSavings(profile)}
-    </div>
-  `;
-  const schemesMarkup = `
-    <aside>
-      <section class="section-topline">
-        <h2>${activeView === "Schemes" ? "Eligible schemes" : "You may be eligible"}</h2>
-        <button class="link-btn" type="button" data-refresh>Edit details</button>
-      </section>
-      <div class="scheme-list ${activeView === "Schemes" ? "scheme-list--grid" : ""}">
-        ${shownSchemes.length ? shownSchemes.map(renderSchemeCard).join("") : `<div class="empty-state">No scheme matches yet. Try adjusting your age, occupation, or state.</div>`}
-      </div>
-      <button class="share-btn" type="button" data-share>${ICONS.share} Share my summary</button>
-    </aside>
-  `;
-  const bodyMarkup = activeView === "Insights"
-    ? `<div class="dashboard-single">${insightsMarkup}</div>`
-    : activeView === "Schemes"
-      ? `<div class="dashboard-single">${schemesMarkup}</div>`
-      : `<div class="dashboard-layout">${insightsMarkup}${schemesMarkup}</div>`;
 
-  renderShell(`
-    <section class="dashboard" aria-labelledby="dashboard-title">
-      <header class="dashboard-header">
-        <div class="session-name">
-          <h1 id="dashboard-title">Namaste, ${escapeHtml(currentName())}</h1>
-          <p>${dateLabel(profile.start)} - ${dateLabel(profile.end)} income summary</p>
-        </div>
-        <div class="dashboard-actions">
-          ${renderThemeToggle("compact")}
-          <button class="icon-btn" type="button" data-reupload aria-label="Upload another CSV">${ICONS.upload}</button>
-        </div>
-      </header>
-      <div class="dashboard-body">
-        ${bodyMarkup}
+  const profile = state.profile;
+  
+  // Filter matches based on search query
+  let filteredMatches = state.matches;
+  if (state.schemeQuery) {
+    const query = state.schemeQuery.toLowerCase();
+    filteredMatches = state.matches.filter(
+      (m) => m.name.toLowerCase().includes(query) || m.shortName.toLowerCase().includes(query)
+    );
+  }
+  
+  const eligible = filteredMatches.filter((item) => item.eligible);
+  const nearMatches = filteredMatches.filter((item) => !item.eligible).slice(0, 2);
+  const shownSchemes = [...eligible, ...nearMatches].slice(0, 6);
+
+  // Card 1: Income Analytics
+  const incomeAnalyticsCard = `
+    <article class="google-card card-analytics">
+      <div class="google-card-header">
+        ${ICONS.bars}
+        <span>Income Analytics</span>
       </div>
+      <h3 class="google-card-title">Daily earnings trend and variations</h3>
+      <div class="google-card-body">
+        ${renderIncomeChart(profile)}
+      </div>
+      <div class="google-card-footer">
+        <span>Analyzed period: ${dateLabel(profile.start)} to ${dateLabel(profile.end)}</span>
+      </div>
+    </article>
+  `;
+
+  // Card 2: Savings recommendation
+  const savingsCard = `
+    <article class="google-card card-savings">
+      <div class="google-card-header">
+        ${ICONS.wallet}
+        <span>Smart Suggestion</span>
+      </div>
+      <h3 class="google-card-title">Arithmetic-based micro-savings rule</h3>
+      <div class="google-card-body">
+        <div class="savings-highlight">
+          <strong>Save ${formatMoney(profile.savings.savePerGoodDay)}</strong>
+          <span>on days earning above ${formatMoney(profile.goodThreshold)}</span>
+        </div>
+        <p class="copy" style="font-size: 0.9rem; margin-top: 10px;">
+          Tied to your actual data, this habit will accumulate about <strong>${formatMoney(profile.savings.monthlySaving)}/month</strong> and cover up to <strong>${profile.savings.coveredLowDays}</strong> low-income days.
+        </p>
+      </div>
+      <div class="google-card-footer">
+        <span>Low-income threshold: ${formatMoney(profile.badThreshold)}</span>
+      </div>
+    </article>
+  `;
+
+  // Card 3: Welfare Schemes
+  const schemesCard = `
+    <article class="google-card card-schemes">
+      <div class="google-card-header">
+        ${ICONS.schemes}
+        <span>Welfare Matching</span>
+      </div>
+      <h3 class="google-card-title">Eligible public schemes (${eligible.length} matched)</h3>
+      <div class="google-card-body">
+        <div class="scheme-list scheme-list--compact">
+          ${shownSchemes.length ? shownSchemes.map(renderSchemeCard).join("") : `<div class="empty-state">No scheme matches found. Try adjusting search or details.</div>`}
+        </div>
+      </div>
+    </article>
+  `;
+
+  // Card 4: Portable Summary Export
+  const summaryCard = `
+    <article class="google-card card-summary">
+      <div class="google-card-header">
+        ${ICONS.share}
+        <span>Share Summary</span>
+      </div>
+      <h3 class="google-card-title">Export your secure worker profile</h3>
+      <div class="google-card-body">
+        <p class="copy" style="font-size: 0.88rem; margin-bottom: 12px;">
+          Generate a portable summary of your checked parameters. No raw bank records are saved or shared.
+        </p>
+        <button class="primary-btn share-btn-google" type="button" data-share>${ICONS.share} Share summary text</button>
+      </div>
+      <div class="google-card-footer">
+        <span>Session code: +91 ${state.session.phone.slice(-4)}</span>
+      </div>
+    </article>
+  `;
+
+  // Filter content based on activeView navigation links
+  let contentGrid = "";
+  if (activeView === "Insights") {
+    contentGrid = `
+      <div class="google-dashboard-grid is-single">
+        ${incomeAnalyticsCard}
+        ${savingsCard}
+      </div>
+    `;
+  } else if (activeView === "Schemes") {
+    contentGrid = `
+      <div class="google-dashboard-grid is-single">
+        ${schemesCard}
+      </div>
+    `;
+  } else {
+    // Dashboard: All cards in 2-column assistant layout
+    contentGrid = `
+      <div class="google-dashboard-grid">
+        ${incomeAnalyticsCard}
+        ${savingsCard}
+        ${schemesCard}
+        ${summaryCard}
+      </div>
+    `;
+  }
+
+  const activeScheme = state.guidanceSchemeId ? (state.schemesDb.find(s => s.id === state.guidanceSchemeId) || FALLBACK_SCHEMES.find(s => s.id === state.guidanceSchemeId)) : null;
+
+  const dashboardContent = `
+    <section class="dashboard-assistant-view">
+      <div class="dashboard-breadcrumbs">
+        <span class="crumb">${t("For you")}</span>
+        <span class="crumb-separator">/</span>
+        <span class="crumb active">${t(activeView === "Transactions" ? "Connect Data" : activeView)}</span>
+        <span class="demo-badge">${t("SECURE SANDBOX")}</span>
+      </div>
+      
+      <div class="dashboard-intro">
+        <h1 class="main-dashboard-title">${t("Welcome, Worker")} ${escapeHtml(currentName().split(" ").slice(-1)[0])}</h1>
+        <p class="copy">${t("This dashboard tracks your calculated income averages and verifies matching state schemes.")}</p>
+      </div>
+      
+      ${contentGrid}
+      
       ${renderBottomNav(activeView)}
       ${state.shareOpen ? renderShareModal() : ""}
+      ${activeScheme ? renderGuidanceModal(activeScheme) : ""}
     </section>
-  `, activeView, "wide");
+  `;
 
-  document.querySelector("[data-reupload]").addEventListener("click", () => {
-    state.route = "upload";
-    render();
-  });
-  document.querySelector("[data-refresh]")?.addEventListener("click", () => {
-    state.route = "upload";
-    render();
-  });
+  renderShell(dashboardContent, activeView, "wide");
+
+  // Re-bind actions
   document.querySelector("[data-share]")?.addEventListener("click", () => {
     state.shareOpen = true;
     state.copied = false;
     render();
+    addAuditLog("Shareable summary viewed.");
   });
+
+  // Bind guide me triggers
+  document.querySelectorAll("[data-guide-scheme]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.guidanceSchemeId = btn.dataset.guideScheme;
+      state.guidanceStep = 1;
+      render();
+      addAuditLog(`Opened step-by-step guidance wizard for scheme: ${state.guidanceSchemeId}`);
+    });
+  });
+
   bindBottomNav();
   bindShareModal();
+  if (activeScheme) {
+    bindGuidanceModalEvents();
+  }
 }
 
 function renderIncomeChart(profile) {
@@ -1041,65 +1392,66 @@ function renderIncomeChart(profile) {
   }).join("");
 
   return `
-    <section class="chart-card" aria-labelledby="chart-title">
-      <div class="chart-head">
-        <h2 id="chart-title">Income pattern</h2>
-        <span>${formatMoney(profile.totalIncome)} total</span>
+    <div class="chart-card-google">
+      <div class="chart-head-google">
+        <strong>${formatMoney(profile.totalIncome)}</strong><span>total parsed credit</span>
       </div>
-      <div class="bar-chart" style="--bar-count:${profile.dailySeries.length}" role="img" aria-label="Daily income bar chart from ${dateLabel(profile.start)} to ${dateLabel(profile.end)}">${bars}</div>
+      <div class="bar-chart" style="grid-template-columns: repeat(${profile.dailySeries.length}, 1fr); gap: 4px;" role="img" aria-label="Daily income bar chart">${bars}</div>
       <div class="bar-labels"><span>${dateLabel(profile.start)}</span><span>${dateLabel(profile.end)}</span></div>
-      <div class="stats-grid">
-        <div class="stat-card primary"><span>Average daily income</span><strong>${formatMoney(profile.averageDaily)}</strong></div>
-        <div class="stat-card good"><span>Good days</span><strong>${profile.goodDays}</strong></div>
-        <div class="stat-card bad"><span>Bad days</span><strong>${profile.badDays}</strong></div>
+      <div class="stats-grid-google">
+        <div class="stat-item-google">
+          <span>Daily Avg</span>
+          <strong>${formatMoney(profile.averageDaily)}</strong>
+        </div>
+        <div class="stat-item-google">
+          <span>Good Days</span>
+          <strong style="color: var(--green);">${profile.goodDays}</strong>
+        </div>
+        <div class="stat-item-google">
+          <span>Bad Days</span>
+          <strong style="color: var(--saffron);">${profile.badDays}</strong>
+        </div>
       </div>
-      <div class="summary-strip">
-        <div class="summary-row"><span>Good day threshold</span><strong>${formatMoney(profile.goodThreshold)} or more</strong></div>
-        <div class="summary-row"><span>Bad day threshold</span><strong>${formatMoney(profile.badThreshold)} or less</strong></div>
-        <div class="summary-row"><span>Income variance</span><strong>${formatNumber(profile.variance, 0)}</strong></div>
-      </div>
-    </section>
-  `;
-}
-
-function renderSavings(profile) {
-  return `
-    <article class="suggestion-card">
-      ${ICONS.rupee}
-      <div>
-        <h2>Arithmetic-based rule</h2>
-        <strong>Save ${formatMoney(profile.savings.savePerGoodDay)} on days above ${formatMoney(profile.goodThreshold)}</strong>
-        <p>At your current pattern, that is about ${formatMoney(profile.savings.monthlySaving)} a month and can cover around ${profile.savings.coveredLowDays} low-income day${profile.savings.coveredLowDays === 1 ? "" : "s"}.</p>
-      </div>
-    </article>
+    </div>
   `;
 }
 
 function renderSchemeCard(match) {
-  const url = getAllowedUrl(match.id);
+  const url = getAllowedUrl(match);
   const reason = match.eligible
     ? `You qualify because your ${match.reasons.slice(0, 2).join(" and ")}.`
     : `Close match: ${match.reasons[0] || "some details match"}, but ${match.misses[0]}.`;
 
+  const minAge = match.eligibility ? match.eligibility.minAge : match.minAge;
+  const maxAge = match.eligibility ? match.eligibility.maxAge : match.maxAge;
+  const maxIncome = match.eligibility ? match.eligibility.maxIncome : match.maxMonthlyIncome;
+
   return `
     <article class="scheme-card">
       <div class="scheme-card__top">
-        <span class="scheme-icon ${match.color}">${ICONS[match.icon]}</span>
+        <span class="scheme-icon ${match.color || "blue"}">${ICONS[match.icon || "file"]}</span>
         <div>
           <h3>${escapeHtml(match.name)}</h3>
-          <p>${escapeHtml(match.benefit)}</p>
+          <p>${escapeHtml(match.benefit || match.description)}</p>
         </div>
       </div>
       <p>${escapeHtml(reason)}</p>
       <div class="scheme-meta">
         <span class="tag">${match.eligible ? "Eligible" : `${match.passed}/${match.required} matched`}</span>
-        <span class="tag">Age ${match.minAge}-${match.maxAge}</span>
-        <span class="tag">Income <= ${formatMoney(match.maxMonthlyIncome)}</span>
+        <span class="tag">Age ${minAge}-${maxAge}</span>
+        ${maxIncome ? `<span class="tag">Income <= ${formatMoney(maxIncome)}</span>` : ""}
       </div>
       ${url ? `
-        <div class="destination">
-          <span>You will be taken to ${escapeHtml(url.hostname)}</span>
-          <a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">${ICONS.external} Open verified portal</a>
+        <div class="destination-secure">
+          <div class="secure-badge">
+            ${ICONS.shield}
+            <span>Verified Official Portal</span>
+          </div>
+          <p class="destination-domain">Destination: <strong>${escapeHtml(url.hostname)}</strong></p>
+          <button class="secure-link-btn" type="button" data-guide-scheme="${match.id}">
+            <span>Guide me & Apply</span>
+            ${ICONS.external}
+          </button>
         </div>
       ` : ""}
     </article>
@@ -1160,6 +1512,11 @@ function renderShareModal() {
           <button class="secondary-btn" type="button" data-close-share>Close</button>
           <button class="primary-btn" type="button" data-copy-share>${ICONS.copy} ${state.copied ? "Copied" : "Copy"}</button>
         </div>
+        <div class="danger-zone" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
+          <h3 style="font-size: 0.95rem; margin: 0 0 8px; color: var(--red);">Danger Zone</h3>
+          <p class="copy" style="font-size: 0.8rem; margin-bottom: 10px;">This will completely clear your parsed income profile and reset the session.</p>
+          <button class="purge-session-btn danger" type="button" data-purge-session style="width: 100%">${ICONS.alert} Clear & Purge Session Data</button>
+        </div>
       </section>
     </div>
   `;
@@ -1188,6 +1545,8 @@ function bindShareModal() {
       render();
     });
   }
+
+  bindPurgeSession();
 }
 
 function initCustomCursor() {
@@ -1264,11 +1623,315 @@ function initInteractiveGridPattern() {
   }, { passive: true });
 }
 
+function renderLanding() {
+  const content = `
+    <div class="landing-page">
+      <!-- Header -->
+      <header class="landing-header">
+        <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>${t("Kaam Card")}</span></div>
+        <div class="landing-header__actions">
+          ${renderThemeToggle("compact")}
+          <button class="primary-btn landing-login-btn" type="button" data-login-cta>${t("LOG IN / START")}</button>
+        </div>
+      </header>
+
+      <!-- Hero Section -->
+      <section class="landing-hero" aria-labelledby="hero-title">
+        <div class="landing-hero__content">
+          <h1 id="hero-title" class="hero-main-title">
+            ${state.lang === "hi" ?
+              `२ मिनट में <span class="text-gradient">प्लेटफ़ॉर्म कमाई</span> से <span class="text-gradient">कल्याणकारी योजनाओं</span> तक जाएँ।` :
+              `Go from <span class="text-gradient">Platform Earnings</span> to <span class="text-gradient">Welfare Benefits</span> in 2 Minutes.`
+            }
+          </h1>
+          <p class="hero-subtitle">
+            ${state.lang === "hi" ?
+              `काम कार्ड असंगठित और गिग श्रमिकों के लिए एक सुरक्षित रिकॉर्ड है। आसानी से अपने यूपीआई स्टेटमेंट को सत्यापित आय प्रोफ़ाइल में बदलें, योजनाओं की जांच करें और बचत करें।` :
+              `Kaam Card is a portable, secure record for informal and gig workers. Easily turn your UPI statement into a verified income profile, check eligibility for government schemes, and build micro-savings suggestions.`
+            }
+          </p>
+          <div class="hero-ctas">
+            <button class="primary-btn hero-cta-btn" type="button" data-login-cta>${t("Create Your Kaam Card")}</button>
+            <a href="#how-it-works" class="secondary-btn hero-sec-btn">${t("How it Works")}</a>
+          </div>
+          <div class="hero-trust">
+            <span class="trust-badge">${ICONS.shield} ${t("100% Private: No Aadhaar or PAN stored")}</span>
+            <span class="trust-badge">${ICONS.check} ${t("Safe: In-memory processing")}</span>
+          </div>
+        </div>
+        <div class="landing-hero__preview">
+          <div class="preview-card">
+            <div class="preview-header">
+              <span class="preview-dot"></span>
+              <span class="preview-dot"></span>
+              <span class="preview-dot"></span>
+              <span class="preview-title">Income Summary Mockup</span>
+            </div>
+            <div class="preview-body">
+              <div class="mock-stat">
+                <span>Average Daily Income</span>
+                <strong>Rs 780/day</strong>
+              </div>
+              <div class="mock-chart">
+                <span class="mock-bar" style="height: 60%"></span>
+                <span class="mock-bar" style="height: 80%"></span>
+                <span class="mock-bar" style="height: 40%"></span>
+                <span class="mock-bar" style="height: 95%"></span>
+                <span class="mock-bar" style="height: 70%"></span>
+              </div>
+              <div class="mock-scheme">
+                <span class="scheme-badge saffron">Eligible</span>
+                <strong>PM Shram Yogi Maandhan</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Key Benefits / Value Proposition Section -->
+      <section class="landing-benefits" id="benefits" aria-labelledby="benefits-title">
+        <h2 id="benefits-title" class="section-title">Why Kaam Card?</h2>
+        <p class="section-subtitle">We help gig workers accumulate data value that is normally locked away in siloed apps.</p>
+        <div class="benefits-grid">
+          <div class="benefit-item">
+            <div class="benefit-icon green">${ICONS.bars}</div>
+            <h3>Income Analytics</h3>
+            <p>Understand your earnings variance, good days vs bad days, and average monthly income instantly.</p>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon blue">${ICONS.schemes}</div>
+            <h3>Scheme Matching</h3>
+            <p>Automatically match your computed income against real criteria for e-Shram, PM-SYM, PM-JAY, and more.</p>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon saffron">${ICONS.wallet}</div>
+            <h3>Smart Micro-Savings</h3>
+            <p>Get a mathematically grounded savings rule based on your actual income surplus on high-earning days.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- How it Works Section -->
+      <section class="landing-steps" id="how-it-works" aria-labelledby="steps-title">
+        <h2 id="steps-title" class="section-title">Three Simple Steps</h2>
+        <div class="steps-grid">
+          <div class="step-card-ui">
+            <div class="step-num">1</div>
+            <h3>Secure OTP Login</h3>
+            <p>Enter your phone number to start a secure, isolated sandbox session. No passwords required.</p>
+          </div>
+          <div class="step-card-ui">
+            <div class="step-num">2</div>
+            <h3>Upload Statements</h3>
+            <p>Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.</p>
+          </div>
+          <div class="step-card-ui">
+            <div class="step-num">3</div>
+            <h3>Get Kaam Dashboard</h3>
+            <p>Instantly check eligible schemes, review savings recommendations, and export your portable worker card.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Social Proof / Testimonials Section -->
+      <section class="landing-social" id="testimonials" aria-labelledby="social-title">
+        <h2 id="social-title" class="section-title">Loved by Workers</h2>
+        <p class="section-subtitle">Hear from informal partners who verified their scheme eligibility using Kaam Card.</p>
+        <div class="testimonials-grid">
+          <blockquote>
+            <p class="quote">"Using Kaam Card took less than 2 minutes. It computed my average daily income and showed me I qualified for PM-SYM pension. I registered the same day!"</p>
+            <cite>
+              <strong>Rajesh Kumar</strong>
+              <span>Delivery Partner, Delhi</span>
+            </cite>
+          </blockquote>
+          <blockquote>
+            <p class="quote">"I always wanted to save but didn't know how much. The good-day surplus savings suggestion helped me set aside money on busy weekends to cover dry weekdays."</p>
+            <cite>
+              <strong>Amit Mishra</strong>
+              <span>Cab Driver, Mumbai</span>
+            </cite>
+          </blockquote>
+          <blockquote>
+            <p class="quote">"I was worried about sharing bank logs, but Kaam Card's privacy focus is amazing. It runs on my browser and doesn't store my Aadhaar or transaction lists."</p>
+            <cite>
+              <strong>Sunita Devi</strong>
+              <span>Domestic Worker, Bangalore</span>
+            </cite>
+          </blockquote>
+        </div>
+      </section>
+
+      <!-- Contact / Support Section -->
+      <section class="landing-contact" id="contact" aria-labelledby="contact-title">
+        <div class="contact-box">
+          <h2 id="contact-title">Need help checking eligibility?</h2>
+          <p>We are dedicated to supporting digital portability for India's gig economy. If you have questions about the pilot or scheme integration, get in touch.</p>
+          <div class="contact-methods">
+            <div class="contact-method">${ICONS.shield} <span>support@kaamcard.nic.in</span></div>
+            <div class="contact-method">${ICONS.rupee} <span>Toll-free Helpdesk: 1800-XXX-XXXX</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="landing-footer">
+        <div class="footer-brand">
+          <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>Kaam Card</span></div>
+          <p>© 2026 Kaam Card. Empowering Indian gig workers with portable data identity.</p>
+        </div>
+        <div class="footer-links">
+          <a href="#benefits">Features</a>
+          <a href="#how-it-works">Process</a>
+          <a href="#testimonials">Reviews</a>
+          <a href="#contact">Contact</a>
+        </div>
+      </footer>
+    </div>
+  `;
+
+  app.innerHTML = `
+    <div class="app-shell landing-shell">
+      <div class="interactive-grid-pattern" aria-hidden="true"></div>
+      <main class="main-wrap is-landing">
+        ${content}
+      </main>
+    </div>
+  `;
+
+  bindLandingActions();
+  bindThemeToggle();
+  bindGoHome();
+}
+
+function bindLandingActions() {
+  document.querySelectorAll("[data-login-cta]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.route = "login";
+      render();
+    });
+  });
+}
+
+function purgeSession() {
+  state.session = null;
+  state.profile = null;
+  state.parseResult = null;
+  state.matches = [];
+  state.phoneDraft = "";
+  state.details = { age: 29, occupation: "Delivery worker", state: "Delhi" };
+  state.route = "landing";
+  state.shareOpen = false;
+  state.consentGiven = false;
+  state.auditLogs = [];
+  state.schemeQuery = "";
+  render();
+}
+
+function bindPurgeSession() {
+  document.querySelectorAll("[data-purge-session]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (confirm("Are you sure you want to end your session and delete all parsed data? This cannot be undone.")) {
+        purgeSession();
+      }
+    });
+  });
+}
+
+function bindGoHome() {
+  document.querySelectorAll("[data-go-home]").forEach((element) => {
+    element.addEventListener("click", () => {
+      if (state.session) {
+        state.route = state.profile ? "dashboard" : "upload";
+      } else {
+        state.route = "landing";
+      }
+      render();
+    });
+  });
+}
+
+function renderRightSidebar() {
+  if (!state.session) return "";
+
+  const logItems = state.auditLogs.map((log) => `
+    <div class="audit-log-item">
+      <span class="audit-log-time">${escapeHtml(log.time)}</span>
+      <span class="audit-log-text">${escapeHtml(log.message)}</span>
+    </div>
+  `).join("");
+
+  const resourceItems = [
+    { name: "e-Shram Rules & Benefits.pdf", type: "doc", url: "https://eshram.gov.in/" },
+    { name: "PM-SYM Scheme Guidelines.pdf", type: "doc", url: "https://www.labour.gov.in/pm-sym" },
+    { name: "Ayushman Bharat Portal.doc", type: "doc", url: "https://www.pmjay.gov.in/" },
+    { name: "Kaam Card CSV Template.csv", type: "sheet", url: "#" }
+  ].map((res) => `
+    <a href="${escapeHtml(res.url)}" target="_blank" class="resource-item" rel="noopener noreferrer">
+      <span class="resource-icon ${res.type}">
+        ${res.type === "sheet" ? ICONS.file : ICONS.shield}
+      </span>
+      <span class="resource-name">${escapeHtml(res.name)}</span>
+    </a>
+  `).join("");
+
+  return `
+    <aside class="right-sidebar" aria-label="Welfare Knowledge & Security Logs">
+      <div class="right-sidebar__section">
+        <label for="scheme-search" class="field-label search-label">Search matched schemes</label>
+        <div class="search-input-wrapper">
+          <input type="text" id="scheme-search" placeholder="Type scheme name..." value="${escapeHtml(state.schemeQuery || "")}">
+        </div>
+      </div>
+      
+      <div class="right-sidebar__section">
+        <h3 class="sidebar-heading">Knowledge Resources</h3>
+        <div class="resources-list">
+          ${resourceItems}
+        </div>
+      </div>
+      
+      <div class="right-sidebar__section">
+        <h3 class="sidebar-heading">Local Security Audit Trail</h3>
+        <div class="audit-logs-list">
+          ${logItems || '<div class="empty-logs">No actions logged yet.</div>'}
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+function bindRightSidebarEvents() {
+  const searchInput = document.querySelector("#scheme-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", (event) => {
+      state.schemeQuery = event.target.value;
+      render();
+      const newInput = document.querySelector("#scheme-search");
+      if (newInput) {
+        newInput.focus();
+        newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+      }
+    });
+  }
+}
+
+function bindPromoClose() {
+  const close = document.querySelector("[data-close-promo]");
+  if (close) {
+    close.addEventListener("click", () => {
+      const card = document.querySelector(".sidebar-promo-card");
+      if (card) card.style.display = "none";
+    });
+  }
+}
+
 function render() {
-  if (state.route !== "login" && state.route !== "otp" && !state.session) {
-    state.route = "login";
+  if (state.route !== "landing" && state.route !== "login" && state.route !== "otp" && !state.session) {
+    state.route = "landing";
   }
 
+  if (state.route === "landing") renderLanding();
   if (state.route === "login") renderLogin();
   if (state.route === "otp") renderOtp();
   if (state.route === "upload") renderUpload();
@@ -1277,7 +1940,180 @@ function render() {
   if (state.route === "schemes") renderDashboard("Schemes");
 }
 
+function renderGuidanceModal(scheme) {
+  const step = state.guidanceStep || 1;
+  const url = getAllowedUrl(scheme);
+  const documents = scheme.documents || ["Aadhaar Card", "Mobile number linked with Aadhaar", "Savings bank account passbook"];
+  const steps = scheme.steps || [
+    "Open the official verified portal.",
+    "Verify using Aadhaar-linked OTP.",
+    "Submit your occupation details and get registered."
+  ];
+
+  let stepContent = "";
+  if (step === 1) {
+    const docItems = documents.map((doc) => `
+      <li class="doc-checklist-item" style="list-style: none; margin: 8px 0;">
+        <label class="doc-checkbox-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; font-size: 0.92rem;">
+          <input type="checkbox" class="doc-checkbox" style="width: 18px; height: 18px; accent-color: var(--green);">
+          <span>${escapeHtml(t(doc))}</span>
+        </label>
+      </li>
+    `).join("");
+
+    stepContent = `
+      <div class="guidance-step-view">
+        <h4 class="guidance-step-title" style="font-size: 1.1rem; font-weight: 850; margin: 0 0 10px 0;">${t("Step 1: Check Required Documents")}</h4>
+        <p class="copy" style="margin-bottom: 15px; font-size: 0.88rem;">${t("Please check off that you have these documents ready before opening the application portal:")}</p>
+        <ul class="doc-checklist" style="padding: 0; margin: 0 0 15px 0;">
+          ${docItems}
+        </ul>
+        <div class="guidance-disclaimer" style="margin-top: 15px; padding: 12px; border-radius: 8px; background: var(--blue-soft); border: 1px solid var(--line); font-size: 0.8rem; display: flex; gap: 8px; align-items: flex-start;">
+          <span style="color: var(--blue); width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;">${ICONS.shield}</span>
+          <span style="color: var(--blue); font-weight: 700; line-height: 1.45;">${t("Kaam Card never saves or asks for copy uploads of these documents. Keep them with you locally.")}</span>
+        </div>
+      </div>
+    `;
+  } else if (step === 2) {
+    const stepItems = steps.map((s, idx) => `
+      <div class="guidance-instruction-card" style="display: flex; gap: 14px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px;">
+        <div class="instruction-num" style="width: 24px; height: 24px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 0.85rem; font-weight: 800; flex: 0 0 auto;">${idx + 1}</div>
+        <p class="instruction-desc" style="margin: 0; font-size: 0.88rem; line-height: 1.45; font-weight: 700; color: var(--ink);">${escapeHtml(t(s))}</p>
+      </div>
+    `).join("");
+
+    stepContent = `
+      <div class="guidance-step-view">
+        <h4 class="guidance-step-title" style="font-size: 1.1rem; font-weight: 850; margin: 0 0 10px 0;">${t("Step 2: Step-by-Step Instructions")}</h4>
+        <p class="copy" style="margin-bottom: 15px; font-size: 0.88rem;">${t("Follow these steps on the official portal to complete your registration:")}</p>
+        <div class="instructions-timeline">
+          ${stepItems}
+        </div>
+      </div>
+    `;
+  } else {
+    stepContent = `
+      <div class="guidance-step-view" style="text-align: center;">
+        <h4 class="guidance-step-title" style="font-size: 1.1rem; font-weight: 850; margin: 0 0 10px 0;">${t("Step 3: Access Official Portal")}</h4>
+        <p class="copy" style="margin-bottom: 20px; font-size: 0.88rem;">${t("You are now ready to visit the official website of the")} <strong>${escapeHtml(t(scheme.ministry || "Government of India"))}</strong>.</p>
+        
+        <div class="destination-secure" style="text-align: left; background: var(--surface-strong); border: 1px solid var(--line-strong); border-radius: 12px; padding: 16px; margin: 15px 0;">
+          <div class="secure-badge" style="display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+            <span style="width: 14px; height: 14px;">${ICONS.shield}</span>
+            <span>${t("Verified Official Portal")}</span>
+          </div>
+          <p class="destination-domain" style="margin: 0 0 12px 0; font-size: 0.86rem; color: var(--ink);">${t("Destination:")} <strong>${escapeHtml(url ? url.hostname : "")}</strong></p>
+          <a class="secure-link-btn" href="${escapeHtml(url ? url.href : "#")}" target="_blank" rel="noopener noreferrer" style="width: 100%; min-height: 42px; border: 1px solid var(--green); border-radius: var(--radius-sm); color: #fff !important; background: var(--green); display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 760; box-shadow: 0 4px 12px rgba(8, 137, 71, 0.15);">
+            <span>${t("Open official portal")}</span>
+            ${ICONS.external}
+          </a>
+        </div>
+        
+        <p class="copy" style="font-size: 0.8rem; color: var(--muted); margin-top: 15px;">
+          ${state.lang === "hi" ?
+            "कोई भी व्यक्तिगत जानकारी जमा करने से पहले हमेशा पुष्टि करें कि URL .gov.in या .nic.in पर समाप्त होता है।" :
+            "Always confirm the URL ends in .gov.in or .nic.in before submitting any personal information."
+          }
+        </p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="modal-backdrop" id="guidance-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; z-index: 1000; padding: 16px;">
+      <div class="modal-card is-guidance" style="background: var(--paper); border: 1px solid var(--line-strong); border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 12px 32px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden;">
+        <header class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--surface);">
+          <h3 class="modal-title" style="margin: 0; font-size: 1.1rem; font-weight: 850; color: var(--ink);">${escapeHtml(t(scheme.shortName || scheme.name))} ${t("Guide")}</h3>
+          <button class="icon-btn" type="button" data-close-guidance aria-label="${t("Close")}" style="background: none; border: none; cursor: pointer; color: var(--muted); display: grid; place-items: center;">${ICONS.back}</button>
+        </header>
+        
+        <!-- Step progress indicators -->
+        <div class="guidance-steps-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; background: var(--surface); border-bottom: 1px solid var(--line);">
+          <div class="step-indicator ${step >= 1 ? "active" : ""}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: ${step >= 1 ? "var(--green)" : "var(--muted)"};">
+            <div class="step-num" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${step >= 1 ? "var(--green)" : "var(--line)"}; background: ${step >= 1 ? "var(--green)" : "var(--paper)"}; color: ${step >= 1 ? "#fff" : "var(--muted)"}; display: grid; place-items: center; font-weight: 800;">1</div>
+            <span>${t("Docs")}</span>
+          </div>
+          <div class="step-line" style="flex: 1; height: 2px; background: ${step >= 2 ? "var(--green)" : "var(--line)"}; margin: 0 10px; margin-top: -12px;"></div>
+          <div class="step-indicator ${step >= 2 ? "active" : ""}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: ${step >= 2 ? "var(--green)" : "var(--muted)"};">
+            <div class="step-num" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${step >= 2 ? "var(--green)" : "var(--line)"}; background: ${step >= 2 ? "var(--green)" : "var(--paper)"}; color: ${step >= 2 ? "#fff" : "var(--muted)"}; display: grid; place-items: center; font-weight: 800;">2</div>
+            <span>${t("Steps")}</span>
+          </div>
+          <div class="step-line" style="flex: 1; height: 2px; background: ${step >= 3 ? "var(--green)" : "var(--line)"}; margin: 0 10px; margin-top: -12px;"></div>
+          <div class="step-indicator ${step >= 3 ? "active" : ""}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: ${step >= 3 ? "var(--green)" : "var(--muted)"};">
+            <div class="step-num" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${step >= 3 ? "var(--green)" : "var(--line)"}; background: ${step >= 3 ? "var(--green)" : "var(--paper)"}; color: ${step >= 3 ? "#fff" : "var(--muted)"}; display: grid; place-items: center; font-weight: 800;">3</div>
+            <span>${t("Apply")}</span>
+          </div>
+        </div>
+        
+        <div class="modal-body" style="padding: 24px; flex-grow: 1; overflow-y: auto; max-height: 380px;">
+          ${stepContent}
+        </div>
+        
+        <footer class="modal-footer" style="padding: 16px 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; background: var(--surface);">
+          <button class="secondary-btn" type="button" data-prev-step ${step === 1 ? "disabled" : ""} style="min-height: 38px; padding: 0 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; background: var(--paper); color: var(--ink);">${t("Back")}</button>
+          ${step < 3 ? `
+            <button class="primary-btn" type="button" data-next-step style="min-height: 38px; padding: 0 16px; border: 1px solid var(--green); border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; background: var(--green); color: #fff;">${t("Next Step")}</button>
+          ` : `
+            <button class="primary-btn" type="button" data-close-guidance style="min-height: 38px; padding: 0 16px; border: 1px solid var(--green); border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; background: var(--green); color: #fff;">${t("Finish")}</button>
+          `}
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
+function bindGuidanceModalEvents() {
+  const modal = document.querySelector("#guidance-modal");
+  if (!modal) return;
+
+  modal.querySelectorAll("[data-close-guidance]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.guidanceSchemeId = null;
+      state.guidanceStep = 1;
+      render();
+    });
+  });
+
+  modal.querySelector("[data-prev-step]")?.addEventListener("click", () => {
+    if (state.guidanceStep > 1) {
+      state.guidanceStep -= 1;
+      render();
+    }
+  });
+
+  modal.querySelector("[data-next-step]")?.addEventListener("click", () => {
+    if (state.guidanceStep < 3) {
+      state.guidanceStep += 1;
+      render();
+    }
+  });
+  
+  modal.querySelectorAll(".doc-checkbox").forEach((cb, idx) => {
+    cb.addEventListener("change", (e) => {
+      addAuditLog(`Guidance document checkbox ${idx + 1} marked ${e.target.checked ? "checked" : "unchecked"}.`);
+    });
+  });
+}
+
+async function loadSchemesDb() {
+  try {
+    const response = await fetch("schemes_db.json");
+    if (response.ok) {
+      state.schemesDb = await response.json();
+      addAuditLog(`Loaded ${state.schemesDb.length} schemes dynamically from scraped database.`);
+    } else {
+      throw new Error(`HTTP status ${response.status}`);
+    }
+  } catch (error) {
+    console.error("Failed to load schemes_db.json, using fallback schemes:", error);
+    state.schemesDb = FALLBACK_SCHEMES;
+    addAuditLog("Using offline fallback welfare schemes.");
+  }
+}
+
 applyTheme(state.theme);
 initInteractiveGridPattern();
 initCustomCursor();
-render();
+loadSchemesDb().finally(() => {
+  render();
+});
