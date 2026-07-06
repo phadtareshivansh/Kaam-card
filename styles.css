@@ -137,19 +137,19 @@ a {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1040px;
   margin: 0 auto;
   padding: 16px;
 }
 
 .phone-stage {
   width: 100%;
-  max-width: 430px;
+  max-width: 392px;
   margin: 0 auto;
 }
 
 .phone-stage.is-wide {
-  max-width: 430px;
+  max-width: 920px;
 }
 
 .phone-card {
@@ -582,10 +582,19 @@ a {
 }
 
 .upload-zone svg {
-  width: 54px;
-  height: 54px;
+  width: 48px;
+  height: 48px;
   color: var(--green);
   margin-bottom: 8px;
+}
+
+.consent-panel h2 svg,
+.consent-box-container svg,
+.guidance-disclaimer svg,
+.privacy-line svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 }
 
 .upload-zone strong {
@@ -1358,18 +1367,18 @@ a {
   }
 
   .main-wrap {
-    width: min(100%, 1080px);
+    width: min(100%, 1000px);
     display: grid;
     place-items: center;
   }
 
   .phone-stage {
     width: 100%;
-    max-width: 430px;
+    max-width: 392px;
   }
 
   .phone-stage.is-wide {
-    max-width: 1080px;
+    max-width: 920px;
   }
 
   .phone-card {

@@ -290,6 +290,11 @@ const TRANSLATIONS = {
   "Purge Session Data": "सत्र डेटा साफ़ करें",
   "For you": "आपके लिए",
   "SECURE SANDBOX": "सुरक्षित सैंडबॉक्स",
+  "LOG IN / START": "लॉग इन / शुरू करें",
+  "Create Your Kaam Card": "अपना काम कार्ड बनाएं",
+  "How it Works": "यह कैसे काम करता है",
+  "100% Private: No Aadhaar or PAN stored": "100% निजी: आधार या पैन संग्रहीत नहीं",
+  "Safe: In-memory processing": "सुरक्षित: केवल मेमोरी में प्रोसेसिंग",
 
   // Landing page
   "Go from daily wages to safe public welfare benefits": "दैनिक मजदूरी से सुरक्षित सरकारी कल्याण योजनाओं तक",
@@ -299,13 +304,36 @@ const TRANSLATIONS = {
   "Go from design to build without losing crucial details.": "महत्वपूर्ण विवरण खोए बिना डिज़ाइन से निर्माण तक जाएँ।",
   "Security Audit": "सुरक्षा ऑडिट",
   "No data is shared or stored without explicit consent.": "स्पष्ट सहमति के बिना कोई डेटा साझा या संग्रहीत नहीं किया जाता है।",
+  "Why Kaam Card?": "काम कार्ड क्यों?",
+  "We help gig workers accumulate data value that is normally locked away in siloed apps.": "हम गिग श्रमिकों को ऐसा डेटा मूल्य बनाने में मदद करते हैं जो आम तौर पर अलग-अलग ऐप्स में बंद रहता है।",
+  "Income Analytics": "आय विश्लेषण",
+  "Understand your earnings variance, good days vs bad days, and average monthly income instantly.": "अपनी कमाई में उतार-चढ़ाव, अच्छे दिन बनाम बुरे दिन, और औसत मासिक आय तुरंत समझें।",
+  "Scheme Matching": "योजना मिलान",
+  "Automatically match your computed income against real criteria for e-Shram, PM-SYM, PM-JAY, and more.": "e-Shram, PM-SYM, PM-JAY और अन्य के वास्तविक मानदंडों से अपनी गणना की गई आय को स्वतः मिलाएं।",
+  "Smart Micro-Savings": "स्मार्ट सूक्ष्म बचत",
+  "Get a mathematically grounded savings rule based on your actual income surplus on high-earning days.": "उच्च-आय वाले दिनों में आपकी वास्तविक आय अधिशेष के आधार पर गणितीय बचत नियम प्राप्त करें।",
+  "Three Simple Steps": "तीन सरल चरण",
+  "Secure OTP Login": "सुरक्षित ओटीपी लॉगिन",
+  "Enter your phone number to start a secure, isolated sandbox session. No passwords required.": "सुरक्षित, अलग सैंडबॉक्स सत्र शुरू करने के लिए अपना फोन नंबर दर्ज करें। पासवर्ड की आवश्यकता नहीं है।",
+  "Upload Statements": "स्टेटमेंट अपलोड करें",
+  "Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.": "बैंक स्टेटमेंट या UPI स्टेटमेंट CSV अपलोड करें। हम इसे आपके ब्राउज़र में स्थानीय रूप से पार्स करते हैं और कच्चे लेनदेन विवरण हटा देते हैं।",
+  "Get Kaam Dashboard": "काम डैशबोर्ड खोलें",
+  "Instantly check eligible schemes, review savings recommendations, and export your portable worker card.": "योग्य योजनाएं तुरंत जांचें, बचत सुझाव देखें, और अपना पोर्टेबल वर्कर कार्ड एक्सपोर्ट करें।",
+  "Loved by Workers": "श्रमिकों द्वारा पसंद किया गया",
+  "Hear from informal partners who verified their scheme eligibility using Kaam Card.": "उन असंगठित साथियों की बातें सुनें जिन्होंने काम कार्ड से अपनी योजना पात्रता सत्यापित की।",
 
   // Login
   "Log In & Access Portal": "लॉग इन और पोर्टल एक्सेस",
+  "Start with your mobile number. This demo keeps the session in memory only.": "अपने मोबाइल नंबर से शुरू करें। यह डेमो सत्र को केवल मेमोरी में रखता है।",
+  "Mobile number": "मोबाइल नंबर",
   "Enter mobile number": "अपना मोबाइल नंबर दर्ज करें",
   "Enter 10 digit number to receive a secure OTP verification check.": "सुरक्षित ओटीपी सत्यापन प्राप्त करने के लिए 10 अंकों का नंबर दर्ज करें।",
   "Send secure OTP link": "सुरक्षित ओटीपी लिंक भेजें",
+  "Continue with sample data": "नमूना डेटा के साथ जारी रखें",
   "OTP Verification": "ओटीपी सत्यापन",
+  "OTP simulated for demo": "डेमो के लिए ओटीपी सिम्युलेट किया गया",
+  "We sent an OTP to": "हमने ओटीपी भेजा है",
+  "Any 4 digits will work in this prototype.": "इस प्रोटोटाइप में कोई भी 4 अंक काम करेंगे।",
   "Verify code": "कोड सत्यापित करें",
   "Verify and continue": "सत्यापित करें और जारी रखें",
   "Switch to light theme": "लाइट थीम पर स्विच करें",
@@ -313,6 +341,23 @@ const TRANSLATIONS = {
 
   // Consent / Upload
   "Consent & Authorization": "सहमति और प्राधिकरण",
+  "Kaam Card parses statement details locally to build your portable record. By continuing, you agree to:": "काम कार्ड आपके पोर्टेबल रिकॉर्ड को बनाने के लिए स्टेटमेंट विवरण को स्थानीय रूप से पार्स करता है। आगे बढ़कर आप सहमत होते हैं:",
+  "Local Parsing:": "स्थानीय पार्सिंग:",
+  "Executed strictly in-browser memory.": "सिर्फ ब्राउज़र मेमोरी में निष्पादित।",
+  "Data Minimization:": "डेटा न्यूनीकरण:",
+  "Raw lines are discarded after daily stats computation.": "दैनिक आँकड़े बनने के बाद कच्ची पंक्तियाँ हटा दी जाती हैं।",
+  "Zero ID Collection:": "कोई पहचान-संग्रह नहीं:",
+  "We never collect Aadhaar, PAN, or full bank numbers.": "हम कभी आधार, पैन, या पूरा बैंक नंबर एकत्र नहीं करते।",
+  "I authorize Kaam Card to parse my transaction statement.": "मैं काम कार्ड को अपने लेनदेन स्टेटमेंट को पार्स करने की अनुमति देता/देती हूँ।",
+  "Your data stays in this browser session. We do not ask for Aadhaar, PAN, or bank account numbers.": "आपका डेटा इसी ब्राउज़र सत्र में रहता है। हम आधार, पैन, या बैंक खाता नंबर नहीं मांगते।",
+  "Use a CSV with date, amount, direction. Links inside files are treated as plain text.": "date, amount, direction वाले CSV का उपयोग करें। फ़ाइलों के अंदर के लिंक सामान्य टेक्स्ट माने जाते हैं।",
+  "Tap to upload CSV": "CSV अपलोड करने के लिए टैप करें",
+  "or drag and drop. CSV only, up to 5 MB.": "या ड्रैग और ड्रॉप करें। केवल CSV, अधिकतम 5 MB।",
+  "Basic details for matching": "मिलान के लिए मूल विवरण",
+  "Age": "आयु",
+  "Occupation": "पेशा",
+  "State": "राज्य",
+  "Sample datasets": "नमूना डेटासेट",
   "Choose Bank Statement Dataset": "बैंक स्टेटमेंट डेटासेट चुनें",
   "Continue to dashboard": "डैशबोर्ड पर जारी रखें",
 
@@ -359,6 +404,21 @@ const TRANSLATIONS = {
   "No documents are uploaded or stored.": "कोई दस्तावेज़ अपलोड या सहेजा नहीं जाता है।",
   "Close": "बंद करें",
   "Verified Portal Redirect": "सत्यापित पोर्टल रीडायरेक्ट",
+  "Guide": "गाइड",
+  "Docs": "दस्तावेज़",
+  "Steps": "चरण",
+  "Apply": "आवेदन करें",
+  "Back": "वापस",
+  "Step 1: Check Required Documents": "चरण 1: आवश्यक दस्तावेज़ जांचें",
+  "Please check off that you have these documents ready before opening the application portal:": "आवेदन पोर्टल खोलने से पहले सुनिश्चित करें कि आपके पास ये दस्तावेज़ तैयार हैं:",
+  "Kaam Card never saves or asks for copy uploads of these documents. Keep them with you locally.": "काम कार्ड इन दस्तावेज़ों की कॉपी कभी नहीं सहेजता और न ही अपलोड मांगता है। इन्हें अपने पास स्थानीय रूप से रखें।",
+  "Step 2: Step-by-Step Instructions": "चरण 2: चरण-दर-चरण निर्देश",
+  "Follow these steps on the official portal to complete your registration:": "अपना पंजीकरण पूरा करने के लिए आधिकारिक पोर्टल पर इन चरणों का पालन करें:",
+  "Step 3: Access Official Portal": "चरण 3: आधिकारिक पोर्टल खोलें",
+  "You are now ready to visit the official website of the": "अब आप आधिकारिक वेबसाइट पर जाने के लिए तैयार हैं:",
+  "Verified Official Portal": "सत्यापित आधिकारिक पोर्टल",
+  "Destination:": "गंतव्य:",
+  "Open official portal": "आधिकारिक पोर्टल खोलें",
   
   // Scheme Names & Details
   "Atal Pension Yojana": "अटल पेंशन योजना",
@@ -1639,16 +1699,14 @@ function renderLanding() {
       <section class="landing-hero" aria-labelledby="hero-title">
         <div class="landing-hero__content">
           <h1 id="hero-title" class="hero-main-title">
-            ${state.lang === "hi" ?
-              `२ मिनट में <span class="text-gradient">प्लेटफ़ॉर्म कमाई</span> से <span class="text-gradient">कल्याणकारी योजनाओं</span> तक जाएँ।` :
-              `Go from <span class="text-gradient">Platform Earnings</span> to <span class="text-gradient">Welfare Benefits</span> in 2 Minutes.`
-            }
+            ${state.lang === "hi"
+              ? `२ मिनट में <span class="text-gradient">प्लेटफ़ॉर्म कमाई</span> से <span class="text-gradient">कल्याणकारी योजनाओं</span> तक जाएँ।`
+              : `Go from <span class="text-gradient">Platform Earnings</span> to <span class="text-gradient">Welfare Benefits</span> in 2 Minutes.`}
           </h1>
           <p class="hero-subtitle">
-            ${state.lang === "hi" ?
-              `काम कार्ड असंगठित और गिग श्रमिकों के लिए एक सुरक्षित रिकॉर्ड है। आसानी से अपने यूपीआई स्टेटमेंट को सत्यापित आय प्रोफ़ाइल में बदलें, योजनाओं की जांच करें और बचत करें।` :
-              `Kaam Card is a portable, secure record for informal and gig workers. Easily turn your UPI statement into a verified income profile, check eligibility for government schemes, and build micro-savings suggestions.`
-            }
+            ${state.lang === "hi"
+              ? `काम कार्ड असंगठित और गिग श्रमिकों के लिए एक सुरक्षित रिकॉर्ड है। आसानी से अपने यूपीआई स्टेटमेंट को सत्यापित आय प्रोफ़ाइल में बदलें, योजनाओं की जांच करें और बचत करें।`
+              : `Kaam Card is a portable, secure record for informal and gig workers. Easily turn your UPI statement into a verified income profile, check eligibility for government schemes, and build micro-savings suggestions.`}
           </p>
           <div class="hero-ctas">
             <button class="primary-btn hero-cta-btn" type="button" data-login-cta>${t("Create Your Kaam Card")}</button>
@@ -1690,73 +1748,73 @@ function renderLanding() {
 
       <!-- Key Benefits / Value Proposition Section -->
       <section class="landing-benefits" id="benefits" aria-labelledby="benefits-title">
-        <h2 id="benefits-title" class="section-title">Why Kaam Card?</h2>
-        <p class="section-subtitle">We help gig workers accumulate data value that is normally locked away in siloed apps.</p>
+        <h2 id="benefits-title" class="section-title">${t("Why Kaam Card?")}</h2>
+        <p class="section-subtitle">${t("We help gig workers accumulate data value that is normally locked away in siloed apps.")}</p>
         <div class="benefits-grid">
           <div class="benefit-item">
             <div class="benefit-icon green">${ICONS.bars}</div>
-            <h3>Income Analytics</h3>
-            <p>Understand your earnings variance, good days vs bad days, and average monthly income instantly.</p>
+            <h3>${t("Income Analytics")}</h3>
+            <p>${t("Understand your earnings variance, good days vs bad days, and average monthly income instantly.")}</p>
           </div>
           <div class="benefit-item">
             <div class="benefit-icon blue">${ICONS.schemes}</div>
-            <h3>Scheme Matching</h3>
-            <p>Automatically match your computed income against real criteria for e-Shram, PM-SYM, PM-JAY, and more.</p>
+            <h3>${t("Scheme Matching")}</h3>
+            <p>${t("Automatically match your computed income against real criteria for e-Shram, PM-SYM, PM-JAY, and more.")}</p>
           </div>
           <div class="benefit-item">
             <div class="benefit-icon saffron">${ICONS.wallet}</div>
-            <h3>Smart Micro-Savings</h3>
-            <p>Get a mathematically grounded savings rule based on your actual income surplus on high-earning days.</p>
+            <h3>${t("Smart Micro-Savings")}</h3>
+            <p>${t("Get a mathematically grounded savings rule based on your actual income surplus on high-earning days.")}</p>
           </div>
         </div>
       </section>
 
       <!-- How it Works Section -->
       <section class="landing-steps" id="how-it-works" aria-labelledby="steps-title">
-        <h2 id="steps-title" class="section-title">Three Simple Steps</h2>
+        <h2 id="steps-title" class="section-title">${t("Three Simple Steps")}</h2>
         <div class="steps-grid">
           <div class="step-card-ui">
             <div class="step-num">1</div>
-            <h3>Secure OTP Login</h3>
-            <p>Enter your phone number to start a secure, isolated sandbox session. No passwords required.</p>
+            <h3>${t("Secure OTP Login")}</h3>
+            <p>${t("Enter your phone number to start a secure, isolated sandbox session. No passwords required.")}</p>
           </div>
           <div class="step-card-ui">
             <div class="step-num">2</div>
-            <h3>Upload Statements</h3>
-            <p>Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.</p>
+            <h3>${t("Upload Statements")}</h3>
+            <p>${t("Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.")}</p>
           </div>
           <div class="step-card-ui">
             <div class="step-num">3</div>
-            <h3>Get Kaam Dashboard</h3>
-            <p>Instantly check eligible schemes, review savings recommendations, and export your portable worker card.</p>
+            <h3>${t("Get Kaam Dashboard")}</h3>
+            <p>${t("Instantly check eligible schemes, review savings recommendations, and export your portable worker card.")}</p>
           </div>
         </div>
       </section>
 
       <!-- Social Proof / Testimonials Section -->
       <section class="landing-social" id="testimonials" aria-labelledby="social-title">
-        <h2 id="social-title" class="section-title">Loved by Workers</h2>
-        <p class="section-subtitle">Hear from informal partners who verified their scheme eligibility using Kaam Card.</p>
+        <h2 id="social-title" class="section-title">${t("Loved by Workers")}</h2>
+        <p class="section-subtitle">${t("Hear from informal partners who verified their scheme eligibility using Kaam Card.")}</p>
         <div class="testimonials-grid">
           <blockquote>
             <p class="quote">"Using Kaam Card took less than 2 minutes. It computed my average daily income and showed me I qualified for PM-SYM pension. I registered the same day!"</p>
             <cite>
               <strong>Rajesh Kumar</strong>
-              <span>Delivery Partner, Delhi</span>
+              <span>${state.lang === "hi" ? "डिलीवरी पार्टनर, दिल्ली" : "Delivery Partner, Delhi"}</span>
             </cite>
           </blockquote>
           <blockquote>
             <p class="quote">"I always wanted to save but didn't know how much. The good-day surplus savings suggestion helped me set aside money on busy weekends to cover dry weekdays."</p>
             <cite>
               <strong>Amit Mishra</strong>
-              <span>Cab Driver, Mumbai</span>
+              <span>${state.lang === "hi" ? "कैब ड्राइवर, मुंबई" : "Cab Driver, Mumbai"}</span>
             </cite>
           </blockquote>
           <blockquote>
             <p class="quote">"I was worried about sharing bank logs, but Kaam Card's privacy focus is amazing. It runs on my browser and doesn't store my Aadhaar or transaction lists."</p>
             <cite>
               <strong>Sunita Devi</strong>
-              <span>Domestic Worker, Bangalore</span>
+              <span>${state.lang === "hi" ? "घरेलू कार्यकर्ता, बेंगलुरु" : "Domestic Worker, Bangalore"}</span>
             </cite>
           </blockquote>
         </div>
