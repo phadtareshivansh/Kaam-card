@@ -1,5 +1,14 @@
 const app = document.querySelector("#app");
 const THEME_STORAGE_KEY = "kaam-card-theme";
+const SESSION_STORAGE_KEY = "kaam-card-session";
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const BAD_DAY_THRESHOLD_RATIO = 0.5;
+const SAVINGS_RATE = 0.45;
+const MIN_SAVINGS_AMOUNT = 20;
+const SAVINGS_ROUNDING = 10;
+const FALLBACK_SURPLUS_RATIO = 0.2;
+const DAYS_IN_MONTH = 30;
 
 const ICONS = {
   wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5v-9Z"/><path d="M16 12h4"/><path d="M6 9h9"/></svg>',
@@ -16,11 +25,36 @@ const ICONS = {
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8h16v-8"/><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/></svg>',
   rupee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12"/><path d="M6 8h12"/><path d="M6 13h3a5 5 0 0 0 5-5"/><path d="m6 13 8 8"/></svg>',
   back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
-  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
   menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.2 8.2 0 0 1 9.5 3.6 8.5 8.5 0 1 0 20.4 14.5Z"/></svg>'
+};
+
+const OCCUPATION_ALIASES = {
+  "cab driver": "Driver",
+  "auto driver": "Driver",
+  "taxi driver": "Driver",
+  "truck driver": "Driver",
+  "ride driver": "Driver",
+  "delivery partner": "Delivery worker",
+  "food delivery": "Delivery worker",
+  "courier": "Delivery worker",
+  "household worker": "Domestic worker",
+  "maid": "Domestic worker",
+  "cook": "Domestic worker",
+  "sweeper": "Domestic worker",
+  "vendor": "Street vendor",
+  "hawker": "Street vendor",
+  "market vendor": "Street vendor",
+  "factory worker": "Construction worker",
+  "mason": "Construction worker",
+  "carpenter": "Construction worker",
+  "plumber": "Construction worker",
+  "electrician": "Construction worker",
+  "tailor": "Home-based worker",
+  "handicraft": "Home-based worker",
+  "home-based": "Home-based worker"
 };
 
 const OCCUPATIONS = [
@@ -58,6 +92,47 @@ function getInitialTheme() {
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
+}
+
+function saveSession() {
+  try {
+    const data = {
+      session: state.session,
+      profile: state.profile,
+      parseResult: state.parseResult,
+      matches: state.matches,
+      details: state.details,
+      consentGiven: state.consentGiven
+    };
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    // Storage quota exceeded or private browsing — session persistence is optional.
+  }
+}
+
+function loadSession() {
+  try {
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.session) state.session = data.session;
+    if (data.profile) state.profile = data.profile;
+    if (data.parseResult) state.parseResult = data.parseResult;
+    if (data.matches) state.matches = data.matches;
+    if (data.details) state.details = data.details;
+    if (data.consentGiven) state.consentGiven = data.consentGiven;
+    return Boolean(data.session);
+  } catch (error) {
+    return false;
+  }
+}
+
+function clearSessionStorage() {
+  try {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch (error) {
+    // Cleanup is best-effort.
+  }
 }
 
 const SAMPLE_DATASETS = [
@@ -256,6 +331,7 @@ const state = {
   route: "landing",
   session: null,
   phoneDraft: "",
+  otpDebugCode: null,
   theme: getInitialTheme(),
   lang: "en",
   details: {
@@ -288,6 +364,10 @@ const TRANSLATIONS = {
   "Secure & Private": "सुरक्षित और निजी",
   "Parsed locally. Zero network leaks.": "स्थानीय रूप से पार्स किया गया। कोई डेटा लीक नहीं।",
   "Purge Session Data": "सत्र डेटा साफ़ करें",
+  "Purge Session": "सत्र साफ़ करें",
+  "Export Card": "कार्ड निर्यात करें",
+  "Light Mode": "लाइट मोड",
+  "Dark Mode": "डार्क मोड",
   "For you": "आपके लिए",
   "SECURE SANDBOX": "सुरक्षित सैंडबॉक्स",
   "LOG IN / START": "लॉग इन / शुरू करें",
@@ -295,8 +375,17 @@ const TRANSLATIONS = {
   "How it Works": "यह कैसे काम करता है",
   "100% Private: No Aadhaar or PAN stored": "100% निजी: आधार या पैन संग्रहीत नहीं",
   "Safe: In-memory processing": "सुरक्षित: केवल मेमोरी में प्रोसेसिंग",
+  "Go from Platform Earnings to Welfare Benefits in 2 Minutes.": "२ मिनट में प्लेटफ़ॉर्म कमाई से कल्याणकारी योजनाओं तक जाएँ।",
+  "Kaam Card is a portable, secure record for informal and gig workers.": "काम कार्ड असंगठित और गिग श्रमिकों के लिए एक सुरक्षित रिकॉर्ड है।",
+  "Aadhaar Card": "आधार कार्ड",
 
   // Landing page
+  "What We Do": "हम क्या करते हैं",
+  "Designed for India's Informal Workforce": "भारत के असंगठित कार्यबल के लिए डिज़ाइन किया गया",
+  "2 min": "२ मिनट",
+  "Average setup time": "औसत सेटअप समय",
+  "Zero": "शून्य",
+  "Data stored on servers": "सर्वर पर संग्रहीत डेटा",
   "Go from daily wages to safe public welfare benefits": "दैनिक मजदूरी से सुरक्षित सरकारी कल्याण योजनाओं तक",
   "Verify your eligibility instantly and register on official portals without middleman risk.": "बिचौलियों के जोखिम के बिना अपनी पात्रता तुरंत सत्यापित करें और आधिकारिक पोर्टलों पर पंजीकरण करें।",
   "Verify eligibility & register": "पात्रता सत्यापित करें और पंजीकरण करें",
@@ -331,7 +420,7 @@ const TRANSLATIONS = {
   "Send secure OTP link": "सुरक्षित ओटीपी लिंक भेजें",
   "Continue with sample data": "नमूना डेटा के साथ जारी रखें",
   "OTP Verification": "ओटीपी सत्यापन",
-  "OTP simulated for demo": "डेमो के लिए ओटीपी सिम्युलेट किया गया",
+  "OTP sent via server": "सर्वर के माध्यम से भेजा गया ओटीपी",
   "We sent an OTP to": "हमने ओटीपी भेजा है",
   "Any 4 digits will work in this prototype.": "इस प्रोटोटाइप में कोई भी 4 अंक काम करेंगे।",
   "Verify code": "कोड सत्यापित करें",
@@ -349,6 +438,13 @@ const TRANSLATIONS = {
   "Zero ID Collection:": "कोई पहचान-संग्रह नहीं:",
   "We never collect Aadhaar, PAN, or full bank numbers.": "हम कभी आधार, पैन, या पूरा बैंक नंबर एकत्र नहीं करते।",
   "I authorize Kaam Card to parse my transaction statement.": "मैं काम कार्ड को अपने लेनदेन स्टेटमेंट को पार्स करने की अनुमति देता/देती हूँ।",
+  "Kaam Card parses statement details locally to build your portable record. By continuing, you agree to:": "काम कार्ड आपका सुरक्षित रिकॉर्ड बनाने के लिए स्टेटमेंट को स्थानीय रूप से पार्स करता है। आगे बढ़ने से आप निम्न पर सहमत हैं:",
+  "Local Parsing:": "स्थानीय पार्सिंग:",
+  "Data Minimization:": "डेटा न्यूनीकरण:",
+  "Zero ID Collection:": "कोई आईडी संग्रह नहीं:",
+  "Executed strictly in-browser memory.": "केवल ब्राउज़र मेमोरी में निष्पादित।",
+  "Raw lines are discarded after daily stats computation.": "दैनिक गणना के बाद कच्चा डेटा हटा दिया जाता है।",
+  "We never collect Aadhaar, PAN, or full bank numbers.": "हम कभी भी आधार, पैन या बैंक नंबर एकत्र नहीं करते हैं।",
   "Your data stays in this browser session. We do not ask for Aadhaar, PAN, or bank account numbers.": "आपका डेटा इसी ब्राउज़र सत्र में रहता है। हम आधार, पैन, या बैंक खाता नंबर नहीं मांगते।",
   "Use a CSV with date, amount, direction. Links inside files are treated as plain text.": "date, amount, direction वाले CSV का उपयोग करें। फ़ाइलों के अंदर के लिंक सामान्य टेक्स्ट माने जाते हैं।",
   "Tap to upload CSV": "CSV अपलोड करने के लिए टैप करें",
@@ -419,6 +515,7 @@ const TRANSLATIONS = {
   "Verified Official Portal": "सत्यापित आधिकारिक पोर्टल",
   "Destination:": "गंतव्य:",
   "Open official portal": "आधिकारिक पोर्टल खोलें",
+  "Always confirm the URL ends in .gov.in or .nic.in before submitting any personal information.": "कोई भी व्यक्तिगत जानकारी जमा करने से पहले हमेशा पुष्टि करें कि URL .gov.in या .nic.in पर समाप्त होता है।",
   
   // Scheme Names & Details
   "Atal Pension Yojana": "अटल पेंशन योजना",
@@ -430,7 +527,141 @@ const TRANSLATIONS = {
   "Ayushman Bharat PM-JAY": "आयुष्मान भारत पीएम-जेएवाई",
   "Free health insurance coverage up to Rs. 5 Lakhs per family per year for secondary and tertiary care hospitalization.": "माध्यमिक और तृतीयक देखभाल अस्पताल में भर्ती के लिए प्रति वर्ष प्रति परिवार 5 लाख रुपये तक का मुफ्त स्वास्थ्य बीमा कवरेज।",
   "PM SVANidhi Scheme": "पीएम स्वनिधि योजना",
-  "Special micro-credit facility for street vendors to access affordable working capital loans for business revival.": "व्यवसाय पुनरुद्धार के लिए किफायती कार्यशील पूंजी ऋण तक पहुंच बनाने के लिए स्ट्रीट वेंडरों के लिए विशेष सूक्ष्म-ऋण सुविधा।"
+  "Special micro-credit facility for street vendors to access affordable working capital loans for business revival.": "व्यवसाय पुनरुद्धार के लिए किफायती कार्यशील पूंजी ऋण तक पहुंच बनाने के लिए स्ट्रीट वेंडरों के लिए विशेष सूक्ष्म-ऋण सुविधा।",
+
+  // Landing testimonials
+  "Delivery Partner, Delhi": "डिलीवरी पार्टनर, दिल्ली",
+  "Cab Driver, Mumbai": "कैब ड्राइवर, मुंबई",
+  "Domestic Worker, Bangalore": "घरेलू कार्यकर्ता, बेंगलुरु",
+
+  // Contact section
+  "Need help checking eligibility?": "पात्रता जांचने में सहायता चाहिए?",
+  "We are dedicated to supporting digital portability for India's gig economy. If you have questions about the pilot or scheme integration, get in touch.": "हम भारत की गिग अर्थव्यवस्था के लिए डिजिटल पोर्टेबिलिटी का समर्थन करने के लिए समर्पित हैं। पायलट या योजना एकीकरण के बारे में प्रश्न हैं तो संपर्क करें।",
+  "Toll-free Helpdesk: 1800-11-0031 (Demo)": "टोल-फ्री हेल्पडेस्क: 1800-11-0031 (डेमो)",
+
+  // Footer
+  "Features": "सुविधाएँ",
+  "Process": "प्रक्रिया",
+  "Reviews": "समीक्षाएँ",
+  "Contact": "संपर्क",
+  "Empowering Indian gig workers with portable data identity.": "भारतीय गिग श्रमिकों को पोर्टेबल डेटा पहचान के साथ सशक्त बनाना।",
+  "Product": "उत्पाद",
+  "Testimonials": "प्रशंसापत्र",
+  "Support": "सहायता",
+  "Email": "ईमेल",
+  "Legal": "कानूनी",
+  "Privacy": "गोपनीयता",
+  "Terms": "शर्तें",
+
+  // Added missing translations
+  "or": "या",
+  "Select Language": "भाषा चुनें",
+  "English": "अंग्रेज़ी",
+  "Hindi": "हिंदी",
+  "Country code": "देश कोड",
+  "Back": "वापस",
+  "OTP digits": "ओटीपी अंक",
+  "OTP digit 1": "ओटीपी अंक 1",
+  "OTP digit 2": "ओटीपी अंक 2",
+  "OTP digit 3": "ओटीपी अंक 3",
+  "OTP digit 4": "ओटीपी अंक 4",
+  "OTP digit 5": "ओटीपी अंक 5",
+  "OTP digit 6": "ओटीपी अंक 6",
+  "Demo code:": "डेमो कोड:",
+  "Parse status": "पार्स स्थिति",
+  "Parsed income rows": "पार्स की गई आय पंक्तियाँ",
+  "No usable income rows yet": "अभी तक कोई उपयोगी आय पंक्तियाँ नहीं",
+  "Rows skipped safely": "पंक्तियाँ सुरक्षित रूप से छोड़ी गईं",
+  "We skipped malformed rows instead of crashing.": "हमने क्रैश होने के बजाय खराब पंक्तियों को छोड़ दिया।",
+  "Row": "पंक्ति",
+  "Issue": "समस्या",
+  "Add at least one valid credit/income row to continue.": "जारी रखने के लिए कम से कम एक वैध क्रेडिट/आय पंक्ति जोड़ें।",
+  "Analyzed period:": "विश्लेषित अवधि:",
+  "Eligible public schemes (": "पात्र सरकारी योजनाएं (",
+  " matched)": " मिलान)",
+  "No scheme matches found. Try adjusting search or details.": "कोई योजना मिलान नहीं मिला। खोज या विवरण समायोजित करने का प्रयास करें।",
+  "Share Summary": "सारांश साझा करें",
+  "Share summary text": "सारांश टेक्स्ट साझा करें",
+  "Session code:": "सत्र कोड:",
+  "Daily income bar chart": "दैनिक आय बार चार्ट",
+  "Eligible": "पात्र",
+  "Welfare Knowledge & Security Logs": "कल्याण ज्ञान और सुरक्षा लॉग",
+  "No actions logged yet.": "अभी तक कोई कार्रवाई लॉग नहीं हुई।",
+  "Shareable summary": "साझा करने योग्य सारांश",
+  "This is a simple text summary for the demo. No raw transactions are included.": "यह डेमो के लिए एक सरल टेक्स्ट सारांश है। कोई कच्चा लेन-देन शामिल नहीं है।",
+  "Copied": "कॉपी हो गया",
+  "Copy": "कॉपी करें",
+  "Danger Zone": "खतरे का क्षेत्र",
+  "This will completely clear your parsed income profile and reset the session.": "यह आपकी पार्स की गई आय प्रोफ़ाइल को पूरी तरह से साफ़ कर देगा और सत्र को रीसेट कर देगा।",
+  "Clear & Purge Session Data": "सत्र डेटा साफ़ करें और हटाएं",
+  "Upload": "अपलोड",
+  "More": "और",
+  "Main navigation": "मुख्य नेविगेशन",
+  "From phone to dashboard in under 2 minutes": "फ़ोन से डैशबोर्ड तक 2 मिनट से भी कम समय में",
+  "Kaam Card navigation": "काम कार्ड नेविगेशन",
+  "Language switched to": "भाषा बदली गई",
+  "Are you sure you want to end your session and delete all parsed data? This cannot be undone.": "क्या आप वाकई अपना सत्र समाप्त करना और सभी पार्स किए गए डेटा को हटाना चाहते हैं? यह पूर्ववत नहीं किया जा सकता।",
+  "Something went wrong": "कुछ गलत हो गया",
+  "The app encountered an unexpected error. Please refresh the page to try again.": "एप्लिकेशन में एक अप्रत्याशित त्रुटि हुई। कृपया पुनः प्रयास करने के लिए पेज रिफ्रेश करें।",
+  "Refresh Page": "पेज रिफ्रेश करें",
+  "Kaam Card summary": "काम कार्ड सारांश",
+  "Phone session:": "फ़ोन सत्र:",
+  "Average daily income:": "औसत दैनिक आय:",
+  "Good days:": "अच्छे दिन:",
+  "bad days:": "बुरे दिन:",
+  "Saving rule: save": "बचत नियम: बचत करें",
+  "on days above": "उपरोक्त दिनों में",
+  "Likely schemes:": "संभावित योजनाएं:",
+  "No exact match yet": "अभी तक कोई सटीक मिलान नहीं",
+  "Demo note: eligibility is simplified and should be verified on the official portal.": "डेमो नोट: पात्रता सरलीकृत है और आधिकारिक पोर्टल पर सत्यापित की जानी चाहिए।",
+  "Income Profile": "आय प्रोफ़ाइल",
+  "Daily Average": "दैनिक औसत",
+  "Monthly Estimate": "मासिक अनुमान",
+  "Low Days": "कम आय वाले दिन",
+  "Savings Recommendation": "बचत अनुशंसा",
+  "Matched Welfare Schemes": "मिलान कल्याण योजनाएं",
+  "Generated by Kaam Card | Eligibility is simplified, verify on official portals": "काम कार्ड द्वारा तैयार | पात्रता सरलीकृत है, आधिकारिक पोर्टलों पर सत्यापित करें",
+  "Income": "आय",
+  "Using Kaam Card took less than 2 minutes. It computed my average daily income and showed me I qualified for PM-SYM pension. I registered the same day!": "काम कार्ड का उपयोग करने में 2 मिनट से भी कम समय लगा। इसने मेरी औसत दैनिक आय की गणना की और मुझे दिखाया कि मैं PM-SYM पेंशन के लिए पात्र हूं। मैंने उसी दिन पंजीकरण कर लिया!",
+  "I always wanted to save but didn't know how much. The good-day surplus savings suggestion helped me set aside money on busy weekends to cover dry weekdays.": "मैं हमेशा बचत करना चाहता था लेकिन पता नहीं था कितना। अच्छे दिन के अधिशेष बचत सुझाव ने मुझे व्यस्त सप्ताहांतों पर पैसे अलग रखने में मदद की ताकि सूखे सप्ताह के दिनों को कवर किया जा सके।",
+  "I was worried about sharing bank logs, but Kaam Card's privacy focus is amazing. It runs on my browser and doesn't store my Aadhaar or transaction lists.": "मुझे बैंक लॉग साझा करने की चिंता थी, लेकिन काम कार्ड का गोपनीयता फोकस अद्भुत है। यह मेरे ब्राउज़र पर चलता है और मेरा आधार या लेन-देन सूची संग्रहीत नहीं करता है।",
+  "© 2026 Kaam Card.": "© 2026 काम कार्ड।",
+  " of ": " का ",
+  " to ": " से ",
+  "/month": "/माह",
+  "You qualify because your ": "आप पात्र हैं क्योंकि आपका ",
+  " and ": " और ",
+  "Close match: ": "नज़दीकी मिलान: ",
+  "some details match": "कुछ विवरण मेल खाते हैं",
+  ", but ": ", लेकिन ",
+  "age ": "आयु ",
+  " is within ": " के भीतर है ",
+  "age must be ": "आयु होनी चाहिए ",
+  "estimated monthly income is below ": "अनुमानित मासिक आय इससे कम है ",
+  "no income cap holds": "कोई आय सीमा नहीं",
+  "income is above ": "आय इससे अधिक है ",
+  " is covered": " शामिल है",
+  "occupation must match: ": "पेशा मेल खाना चाहिए: ",
+  " state matches": " राज्य मेल खाता है",
+  "state must be ": "राज्य होना चाहिए ",
+  " or ": " या ",
+  "Worker ": "कार्यकर्ता ",
+  "Save ": "बचत करें ",
+  " on good days (above ": " अच्छे दिनों में (ऊपर ",
+  ")": ")",
+  " | +91 ": " | +91 ",
+  "-": "-",
+  "CSV needs a header and at least one data row.": "CSV में एक हेडर और कम से कम एक डेटा पंक्ति होनी चाहिए।",
+  "Missing column: ": "गुम कॉलम: ",
+  "Date is invalid. Use YYYY-MM-DD or DD-MM-YYYY.": "तारीख अमान्य है। YYYY-MM-DD या DD-MM-YYYY का उपयोग करें।",
+  "Amount is invalid. Use a positive number.": "राशि अमान्य है। एक सकारात्मक संख्या का उपयोग करें।",
+  "Direction must be credit/income or debit/expense.": "दिशा क्रेडिट/आय या डेबिट/व्यय होनी चाहिए।",
+  "Please upload a CSV file.": "कृपया CSV फ़ाइल अपलोड करें।",
+  "File is larger than 5 MB.": "फ़ाइल 5 MB से बड़ी है।",
+  "Generated by Kaam Card | Eligibility is simplified, verify on official portals": "काम कार्ड द्वारा तैयार | पात्रता सरलीकृत है, आधिकारिक पोर्टलों पर सत्यापित करें",
+  "Kaam Card - ": "काम कार्ड - ",
+  "worker": "कार्यकर्ता",
+  "friend": "मित्र"
 };
 
 function t(text) {
@@ -470,6 +701,7 @@ function escapeHtml(value) {
 
 function normalizeOccupation(value) {
   const clean = String(value || "").trim().toLowerCase();
+  if (OCCUPATION_ALIASES[clean]) return OCCUPATION_ALIASES[clean];
   return OCCUPATIONS.find((item) => item.toLowerCase() === clean) || "Other informal worker";
 }
 
@@ -616,7 +848,7 @@ function computeProfile(transactions) {
   const averageDaily = totalIncome / periodDays;
   const variance =
     dailySeries.reduce((sum, day) => sum + Math.pow(day.amount - averageDaily, 2), 0) / periodDays;
-  const badThreshold = averageDaily * 0.5;
+  const badThreshold = averageDaily * BAD_DAY_THRESHOLD_RATIO;
   const goodThreshold = averageDaily;
   const goodDays = dailySeries.filter((day) => day.amount >= goodThreshold && day.amount > 0);
   const badDays = dailySeries.filter((day) => day.amount <= badThreshold);
@@ -625,9 +857,9 @@ function computeProfile(transactions) {
     : 0;
   const avgGoodSurplus = goodDays.length
     ? goodDays.reduce((sum, day) => sum + Math.max(0, day.amount - goodThreshold), 0) / goodDays.length
-    : averageDaily * 0.2;
-  const savePerGoodDay = Math.max(20, Math.round((avgGoodSurplus * 0.45) / 10) * 10);
-  const expectedGoodDaysPerMonth = Math.round((goodDays.length / periodDays) * 30);
+    : averageDaily * FALLBACK_SURPLUS_RATIO;
+  const savePerGoodDay = Math.max(MIN_SAVINGS_AMOUNT, Math.round((avgGoodSurplus * SAVINGS_RATE) / SAVINGS_ROUNDING) * SAVINGS_ROUNDING);
+  const expectedGoodDaysPerMonth = Math.round((goodDays.length / periodDays) * DAYS_IN_MONTH);
   const monthlySaving = savePerGoodDay * expectedGoodDaysPerMonth;
   const lowDayGap = Math.max(1, averageDaily - avgBadDayIncome);
   const coveredLowDays = Math.max(1, Math.floor(monthlySaving / lowDayGap));
@@ -643,7 +875,7 @@ function computeProfile(transactions) {
     badThreshold,
     goodDays: goodDays.length,
     badDays: badDays.length,
-    monthlyIncomeEstimate: averageDaily * 30,
+    monthlyIncomeEstimate: averageDaily * DAYS_IN_MONTH,
     dailySeries,
     savings: {
       savePerGoodDay,
@@ -669,6 +901,47 @@ function getAllowedUrl(scheme) {
   }
 }
 
+function normalizeScheme(scheme) {
+  if (scheme.eligibility) {
+    return {
+      id: scheme.id,
+      name: scheme.name,
+      shortName: scheme.shortName,
+      description: scheme.description || "",
+      ministry: scheme.ministry || "",
+      verifiedUrl: scheme.verifiedUrl || "",
+      benefit: scheme.description || scheme.shortName,
+      minAge: scheme.eligibility.minAge,
+      maxAge: scheme.eligibility.maxAge,
+      maxMonthlyIncome: scheme.eligibility.maxIncome,
+      occupations: scheme.eligibility.occupations || [],
+      states: scheme.eligibility.states || [],
+      documents: scheme.documents || [],
+      steps: scheme.steps || [],
+      icon: scheme.icon || "shield",
+      color: scheme.color || "blue"
+    };
+  }
+  return {
+    id: scheme.id,
+    name: scheme.name,
+    shortName: scheme.shortName,
+    description: scheme.benefit || "",
+    ministry: scheme.ministry || "",
+    verifiedUrl: scheme.verifiedUrl || "",
+    benefit: scheme.benefit || scheme.shortName,
+    minAge: scheme.minAge,
+    maxAge: scheme.maxAge,
+    maxMonthlyIncome: scheme.maxMonthlyIncome,
+    occupations: scheme.occupations || [],
+    states: scheme.states || [],
+    documents: scheme.documents || [],
+    steps: scheme.steps || [],
+    icon: scheme.icon || "shield",
+    color: scheme.color || "blue"
+  };
+}
+
 function schemeScore(scheme, details, profile) {
   const reasons = [];
   const misses = [];
@@ -677,38 +950,34 @@ function schemeScore(scheme, details, profile) {
   const monthlyIncome = profile.monthlyIncomeEstimate;
   const stateName = details.state;
 
-  const minAge = scheme.eligibility ? scheme.eligibility.minAge : scheme.minAge;
-  const maxAge = scheme.eligibility ? scheme.eligibility.maxAge : scheme.maxAge;
-  const maxIncome = scheme.eligibility ? scheme.eligibility.maxIncome : scheme.maxMonthlyIncome;
-  const occupations = scheme.eligibility ? scheme.eligibility.occupations : scheme.occupations;
-  const states = scheme.eligibility ? scheme.eligibility.states : scheme.states;
+  const { minAge, maxAge, maxMonthlyIncome: maxIncome, occupations, states } = scheme;
 
   if (age >= minAge && age <= maxAge) {
-    reasons.push(`age ${age} is within ${minAge}-${maxAge}`);
+    reasons.push(`${t("age ")}${age}${t(" is within ")}${minAge}${t("-")}${maxAge}`);
   } else {
-    misses.push(`age must be ${minAge}-${maxAge}`);
+    misses.push(`${t("age must be ")}${minAge}${t("-")}${maxAge}`);
   }
 
   if (maxIncome === null || maxIncome === undefined || monthlyIncome <= maxIncome) {
     if (maxIncome) {
-      reasons.push(`estimated monthly income is below ${formatMoney(maxIncome)}`);
+      reasons.push(`${t("estimated monthly income is below ")}${formatMoney(maxIncome)}`);
     } else {
-      reasons.push(`no income cap holds`);
+      reasons.push(t("no income cap holds"));
     }
   } else {
-    misses.push(`income is above ${formatMoney(maxIncome)}`);
+    misses.push(`${t("income is above ")}${formatMoney(maxIncome)}`);
   }
 
   if (!occupations || occupations.length === 0 || occupations.includes(occupation)) {
-    reasons.push(`${occupation.toLowerCase()} is covered`);
+    reasons.push(`${occupation.toLowerCase()}${t(" is covered")}`);
   } else {
-    misses.push(`occupation must match: ${occupations.join(", ")}`);
+    misses.push(`${t("occupation must match: ")}${occupations.join(", ")}`);
   }
 
   if (!states || states.length === 0 || states.includes(stateName)) {
-    if (states && states.length > 0) reasons.push(`${stateName} state matches`);
+    if (states && states.length > 0) reasons.push(`${stateName}${t(" state matches")}`);
   } else {
-    misses.push(`state must be ${states.join(" or ")}`);
+    misses.push(`${t("state must be ")}${states.join(t(" or "))}`);
   }
 
   const passed = reasons.length;
@@ -725,8 +994,9 @@ function schemeScore(scheme, details, profile) {
 }
 
 function matchSchemes(details, profile) {
-  // SIMPLIFIED: this hackathon matcher uses transparent arithmetic rules only.
-  const schemesList = state.schemesDb && state.schemesDb.length > 0 ? state.schemesDb : FALLBACK_SCHEMES;
+  const schemesList = state.schemesDb && state.schemesDb.length > 0
+    ? state.schemesDb.map(normalizeScheme)
+    : FALLBACK_SCHEMES;
   return schemesList.map((scheme) => schemeScore(scheme, details, profile))
     .sort((a, b) => b.rank - a.rank || a.name.localeCompare(b.name));
 }
@@ -755,6 +1025,14 @@ function processCsv(csvText, sourceMeta = {}) {
     state.matches = [];
     addAuditLog(`Failed to compute income profile: no valid transactions.`);
   }
+  saveSession();
+
+  API.saveProfile({
+    profile: state.profile,
+    parseResult: state.parseResult ? { totalRows: state.parseResult.totalRows, validRows: state.parseResult.validRows, source: state.parseResult.source } : null,
+    matches: state.matches.map((m) => ({ id: m.id, name: m.name, shortName: m.shortName, eligible: m.eligible })),
+    details: state.details
+  }).catch(() => {});
 }
 
 function dateLabel(iso) {
@@ -764,7 +1042,7 @@ function dateLabel(iso) {
 
 function currentName() {
   const phone = state.session?.phone || "";
-  return phone ? `Worker ${phone.slice(-4)}` : "friend";
+  return phone ? `${t("worker")} ${phone.slice(-4)}` : t("friend");
 }
 
 function renderShell(content, active = "Dashboard", layout = "compact") {
@@ -775,30 +1053,30 @@ function renderShell(content, active = "Dashboard", layout = "compact") {
       <div class="interactive-grid-pattern" aria-hidden="true"></div>
       
       <!-- Left Sidebar (Desktop sidebar) -->
-      <aside class="side-rail" aria-label="Kaam Card navigation">
+      <aside class="side-rail" aria-label="${t("Kaam Card navigation")}">
         <div class="side-rail__head">
-          <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>${t("Kaam Card")}</span></div>
+          <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
           ${renderThemeToggle("rail")}
         </div>
         
         <nav class="rail-nav">
-          <div class="nav-section-label" style="padding: 10px 12px 4px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em;">${t("General")}</div>
+          <div class="nav-section-label nav-section-general">${t("General")}</div>
           ${navButton("Dashboard", ICONS.home, active === "Dashboard")}
           ${navButton("Connect Data", ICONS.upload, active === "Transactions")}
           
-          <div class="nav-section-label" style="padding: 10px 12px 4px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; margin-top: 10px;">${t("Insights")}</div>
+          <div class="nav-section-label nav-section-insights">${t("Insights")}</div>
           ${navButton("Income Analytics", ICONS.bars, active === "Insights")}
           ${navButton("Welfare Schemes", ICONS.schemes, active === "Schemes")}
         </nav>
         
         <div class="rail-foot">
-          <div class="sidebar-promo-card" style="position: relative; padding: 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); margin-top: 15px;">
-            <span class="promo-close" data-close-promo style="position: absolute; top: 6px; right: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; color: var(--muted);">×</span>
-            <div class="promo-icon" style="margin-bottom: 8px; color: var(--green);">${ICONS.shield}</div>
-            <h4 style="margin: 0 0 4px 0; font-size: 0.88rem; font-weight: 800;">Secure & Private</h4>
-            <p class="copy" style="font-size: 0.76rem; line-height: 1.35;">Parsed locally. Zero network leaks.</p>
+          <div class="sidebar-promo-card sidebar-promo-inline">
+            <span class="promo-close sidebar-promo-close" data-close-promo>×</span>
+            <div class="promo-icon sidebar-promo-icon">${ICONS.shield}</div>
+            <h4 class="sidebar-promo-title">${t("Secure & Private")}</h4>
+            <p class="copy sidebar-promo-desc">${t("Parsed locally. Zero network leaks.")}</p>
           </div>
-          ${hasSession ? `<button class="purge-session-btn" type="button" data-purge-session style="margin-top: 12px; width: 100%">${ICONS.alert} Purge Session Data</button>` : ""}
+          ${hasSession ? `<button class="purge-session-btn sidebar-promo-purge" type="button" data-purge-session>${ICONS.alert} ${t("Purge Session Data")}</button>` : ""}
         </div>
       </aside>
       
@@ -834,16 +1112,16 @@ function navButton(label, icon, active) {
 function renderLangToggle() {
   const isHi = state.lang === "hi";
   return `
-    <div class="lang-switcher" role="radiogroup" aria-label="Select Language">
-      <button class="lang-btn ${!isHi ? 'is-active' : ''}" data-lang="en" type="button" aria-label="English">EN</button>
-      <button class="lang-btn ${isHi ? 'is-active' : ''}" data-lang="hi" type="button" aria-label="Hindi">हिं</button>
+    <div class="lang-switcher" role="radiogroup" aria-label="${t("Select Language")}">
+      <button class="lang-btn ${!isHi ? 'is-active' : ''}" data-lang="en" type="button" aria-label="${t("English")}">EN</button>
+      <button class="lang-btn ${isHi ? 'is-active' : ''}" data-lang="hi" type="button" aria-label="${t("Hindi")}">हिं</button>
     </div>
   `;
 }
 
 function renderThemeToggle(variant = "") {
   const isDark = state.theme === "dark";
-  const label = isDark ? "Switch to light theme" : "Switch to dark theme";
+  const label = isDark ? t("Switch to light theme") : t("Switch to dark theme");
   return `
     <div class="header-controls">
       ${renderLangToggle()}
@@ -888,7 +1166,7 @@ function bindThemeToggle() {
       const newLang = btn.getAttribute("data-lang");
       if (state.lang !== newLang) {
         state.lang = newLang;
-        addAuditLog(`Language switched to ${newLang === 'hi' ? 'Hindi (हिन्दी)' : 'English'}`);
+        addAuditLog(`${t("Language switched to")} ${newLang === 'hi' ? t("Hindi") : t("English")}`);
         render();
       }
     });
@@ -903,9 +1181,9 @@ function navigateTo(label) {
   }
 
   if (label === "Dashboard") state.route = state.profile ? "dashboard" : "upload";
-  if (label === "Transactions" || label === "Upload") state.route = "upload";
-  if (label === "Insights") state.route = state.profile ? "insights" : "upload";
-  if (label === "Schemes") state.route = state.profile ? "schemes" : "upload";
+  if (label === "Upload" || label === "Connect Data" || label === "Transactions") state.route = "upload";
+  if (label === "Insights" || label === "Income Analytics") state.route = state.profile ? "insights" : "upload";
+  if (label === "Schemes" || label === "Welfare Schemes") state.route = state.profile ? "schemes" : "upload";
 
   render();
 }
@@ -920,7 +1198,7 @@ function renderLogin() {
   renderShell(`
     <section class="screen" aria-labelledby="login-title">
       <div class="top-bar">
-        <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>${t("Kaam Card")}</span></div>
+        <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
         ${renderThemeToggle("compact")}
       </div>
       <h1 class="screen-title" id="login-title">${t("Log In & Access Portal")}</h1>
@@ -928,20 +1206,20 @@ function renderLogin() {
       <form class="auth-form" id="phone-form">
         <label class="field-label" for="phone">${t("Mobile number")}</label>
         <div class="phone-input-row">
-          <select aria-label="Country code">
+          <select aria-label="${t("Country code")}">
             <option>+91</option>
           </select>
           <input id="phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="${t("Enter mobile number")}" value="${escapeHtml(state.phoneDraft)}">
         </div>
         <button class="primary-btn" type="submit">${t("Send secure OTP link")}</button>
-        <div class="divider">or</div>
+        <div class="divider">${t("or")}</div>
         <button class="secondary-btn" type="button" data-skip-demo>${ICONS.upload} ${t("Continue with sample data")}</button>
       </form>
       <div class="privacy-line">${ICONS.shield}<span>${t("Your data stays in this browser session. We do not ask for Aadhaar, PAN, or bank account numbers.")}</span></div>
     </section>
   `, "Dashboard");
 
-  document.querySelector("#phone-form").addEventListener("submit", (event) => {
+  document.querySelector("#phone-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const phone = document.querySelector("#phone").value.replace(/\D/g, "");
     if (phone.length < 10) {
@@ -949,8 +1227,17 @@ function renderLogin() {
       return;
     }
     state.phoneDraft = phone.slice(-10);
-    state.route = "otp";
-    render();
+
+    try {
+      const result = await API.sendOtp(state.phoneDraft);
+      addAuditLog(`OTP sent to +91 ******${state.phoneDraft.slice(-4)}`);
+      state.otpDebugCode = result._debug ? result._debug.code : null;
+      state.route = "otp";
+      render();
+    } catch (err) {
+      addAuditLog(`OTP send failed: ${err.message}`);
+      alert(err.message);
+    }
   });
 
   document.querySelector("[data-skip-demo]").addEventListener("click", () => {
@@ -960,6 +1247,7 @@ function renderLogin() {
     addAuditLog(`Demo session started.`);
     processCsv(SAMPLE_DATASETS[0].csv, SAMPLE_DATASETS[0]);
     state.route = "dashboard";
+    saveSession();
     render();
   });
 }
@@ -968,21 +1256,24 @@ function renderOtp() {
   renderShell(`
     <section class="screen" aria-labelledby="otp-title">
       <div class="step-header">
-        <button class="icon-btn" type="button" data-back aria-label="Back">${ICONS.back}</button>
+        <button class="icon-btn" type="button" data-back aria-label="${t("Back")}">${ICONS.back}</button>
         <h1 id="otp-title">${t("OTP Verification")}</h1>
         ${renderThemeToggle("compact")}
       </div>
       <div class="panel" style="text-align:center">
-        <p class="copy" style="color:var(--blue); font-weight:760">${t("OTP simulated for demo")}</p>
-        <p class="copy" style="margin-top:10px">${t("We sent an OTP to")}<br><strong style="color:var(--ink)">+91 ${escapeHtml(state.phoneDraft)}</strong></p>
+        <p class="copy otp-simulated">${t("OTP sent via SMS")}</p>
+        <p class="copy otp-phone">${t("We sent an OTP to")}<br><strong>+91 ${escapeHtml(state.phoneDraft)}</strong></p>
         <form id="otp-form">
-          <div class="otp-grid" aria-label="OTP digits">
-            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 1">
-            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 2">
-            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 3">
-            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="OTP digit 4">
+          <div class="otp-grid" aria-label="${t("OTP digits")}">
+            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="${t("OTP digit 1")}">
+            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="${t("OTP digit 2")}">
+            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="${t("OTP digit 3")}">
+            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="${t("OTP digit 4")}">
+            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="${t("OTP digit 5")}">
+            <input class="otp-input" inputmode="numeric" maxlength="1" aria-label="${t("OTP digit 6")}">
           </div>
-          <p class="copy">${t("Any 4 digits will work in this prototype.")}</p>
+          <p class="copy">${t("OTP sent via SMS. Check your phone for the 6-digit code.")}</p>
+          ${state.otpDebugCode ? `<p class="otp-fallback-code" style="margin-top:8px;font-size:0.85rem;color:var(--muted);background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--radius-sm);padding:8px 12px;display:inline-block">${t("Demo code:")} <strong style="font-family:monospace;font-size:1.2rem;letter-spacing:0.15em;color:var(--accent)">${state.otpDebugCode}</strong></p>` : ""}
           <button class="primary-btn" type="submit">${t("Verify and continue")}</button>
         </form>
       </div>
@@ -991,6 +1282,7 @@ function renderOtp() {
 
   document.querySelector("[data-back]").addEventListener("click", () => {
     state.route = "login";
+    state.otpDebugCode = null;
     render();
   });
 
@@ -1000,16 +1292,30 @@ function renderOtp() {
       input.value = input.value.replace(/\D/g, "").slice(0, 1);
       if (input.value && inputs[index + 1]) inputs[index + 1].focus();
     });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace" && !input.value && inputs[index - 1]) {
+        inputs[index - 1].focus();
+      }
+    });
   });
 
-  document.querySelector("#otp-form").addEventListener("submit", (event) => {
+  document.querySelector("#otp-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    // SIMULATED: OTP verification is skipped for demo speed.
-    state.session = { phone: state.phoneDraft, startedAt: Date.now() };
-    state.auditLogs = [];
-    addAuditLog(`Secure session started for +91 ******${state.phoneDraft.slice(-4)}`);
-    state.route = "upload";
-    render();
+    const code = inputs.map((i) => i.value).join("");
+    if (code.length < 4) return;
+
+    try {
+      const result = await API.verifyOtp(state.phoneDraft, code);
+      state.session = result.session;
+      state.auditLogs = [];
+      addAuditLog(`Secure session started for +91 ******${state.phoneDraft.slice(-4)}`);
+      state.route = "upload";
+      saveSession();
+      render();
+    } catch (err) {
+      addAuditLog(`OTP verification failed: ${err.message}`);
+      alert(err.message);
+    }
   });
 }
 
@@ -1018,36 +1324,31 @@ function renderUpload() {
   renderShell(`
     <section class="screen" aria-labelledby="upload-title">
       <div class="step-header">
-        <button class="icon-btn" type="button" data-back aria-label="Back">${ICONS.back}</button>
+        <button class="icon-btn" type="button" data-back aria-label="${t("Back")}">${ICONS.back}</button>
         <h1 id="upload-title">${t("Connect Data")}</h1>
         ${renderThemeToggle("compact")}
       </div>
       
       <!-- Consent Gate Section -->
-      <section class="panel consent-panel" aria-labelledby="consent-title" style="margin-bottom: 16px;">
-        <h2 id="consent-title" style="display: flex; align-items: center; gap: 8px; margin: 0 0 8px 0; font-size: 0.98rem;">
+      <section class="panel consent-panel consent-section" aria-labelledby="consent-title">
+        <h2 id="consent-title" class="consent-title">
           ${ICONS.shield} <span>${t("Consent & Authorization")}</span>
         </h2>
         <div class="consent-box-container">
-          <p class="copy" style="font-size: 0.84rem; margin-bottom: 10px;">
-            ${state.lang === "hi" ?
-              `काम कार्ड आपका सुरक्षित रिकॉर्ड बनाने के लिए स्टेटमेंट को स्थानीय रूप से पार्स करता है। आगे बढ़ने से आप निम्न पर सहमत हैं:` :
-              `Kaam Card parses statement details locally to build your portable record. By continuing, you agree to:`
-            }
-          </p>
-          <ul class="consent-list" style="margin: 0 0 12px 0; padding-left: 18px; font-size: 0.78rem; color: var(--muted); line-height: 1.4;">
-            <li><strong>${state.lang === "hi" ? "स्थानीय पार्सिंग:" : "Local Parsing:"}</strong> ${state.lang === "hi" ? "केवल ब्राउज़र मेमोरी में निष्पादित।" : "Executed strictly in-browser memory."}</li>
-            <li><strong>${state.lang === "hi" ? "डेटा न्यूनीकरण:" : "Data Minimization:"}</strong> ${state.lang === "hi" ? "दैनिक गणना के बाद कच्चा डेटा हटा दिया जाता है।" : "Raw lines are discarded after daily stats computation."}</li>
-            <li><strong>${state.lang === "hi" ? "कोई आईडी संग्रह नहीं:" : "Zero ID Collection:"}</strong> ${state.lang === "hi" ? "हम कभी भी आधार, पैन या बैंक नंबर एकत्र नहीं करते हैं।" : "We never collect Aadhaar, PAN, or full bank numbers."}</li>
+          <p class="copy consent-desc">${t("Kaam Card parses statement details locally to build your portable record. By continuing, you agree to:")}</p>
+          <ul class="consent-list">
+            <li><strong>${t("Local Parsing:")}</strong> ${t("Executed strictly in-browser memory.")}</li>
+            <li><strong>${t("Data Minimization:")}</strong> ${t("Raw lines are discarded after daily stats computation.")}</li>
+            <li><strong>${t("Zero ID Collection:")}</strong> ${t("We never collect Aadhaar, PAN, or full bank numbers.")}</li>
           </ul>
-          <label class="consent-checkbox-label" style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 0.84rem; font-weight: 700; color: var(--ink);">
-            <input type="checkbox" id="consent-check" ${isConsentChecked ? "checked" : ""} style="margin-top: 2px;">
+          <label class="consent-checkbox-label consent-checkbox">
+            <input type="checkbox" id="consent-check" ${isConsentChecked ? "checked" : ""} class="consent-checkbox-input">
             <span>${t("I authorize Kaam Card to parse my transaction statement.")}</span>
           </label>
         </div>
       </section>
 
-      <p class="copy">${state.lang === "hi" ? "यूपीआई लेनदेन विवरण (date, amount, direction) वाली फ़ाइल चुनें।" : "Use a CSV with date, amount, direction. Links inside files are treated as plain text."}</p>
+      <p class="copy">${t("Use a CSV with date, amount, direction. Links inside files are treated as plain text.")}</p>
       <label class="upload-zone ${isConsentChecked ? "" : "is-disabled"}" id="drop-zone">
         <input id="csv-file" type="file" accept=".csv,text/csv" ${isConsentChecked ? "" : "disabled"}>
         <span>${ICONS.upload}<strong>${t("Tap to upload CSV")}</strong><small>${t("or drag and drop. CSV only, up to 5 MB.")}</small></span>
@@ -1114,6 +1415,7 @@ function renderUpload() {
       document.querySelectorAll("[data-sample]").forEach((btn) => {
         btn.disabled = !state.consentGiven;
       });
+      saveSession();
     });
   }
 
@@ -1185,6 +1487,7 @@ function updateDetails() {
   if (oldAge !== state.details.age || oldOcc !== state.details.occupation || oldState !== state.details.state) {
     addAuditLog(`Worker parameters updated: Age=${state.details.age}, Occupation=${state.details.occupation}, State=${state.details.state}`);
     addAuditLog(`Re-calculated matches: ${state.matches.filter(m => m.eligible).length} schemes eligible.`);
+    saveSession();
   }
 }
 
@@ -1202,7 +1505,7 @@ function readCsvFile(file) {
     return;
   }
 
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > MAX_FILE_SIZE_BYTES) {
     state.parseResult = {
       totalRows: 0,
       validRows: 0,
@@ -1229,37 +1532,37 @@ function renderParseStatus() {
   const issueRows = result.errors.slice(0, 4).map((error) => `
     <tr>
       <td>${escapeHtml(error.row)}</td>
-      <td>${escapeHtml(error.issue)}</td>
+      <td>${escapeHtml(t(error.issue))}</td>
     </tr>
   `).join("");
 
   return `
     <section class="panel parse-card" aria-labelledby="parse-title">
-      <h2 id="parse-title">Parse status</h2>
+      <h2 id="parse-title">${t("Parse status")}</h2>
       <div class="status-list">
         <div class="status-item">
           <span class="status-ok">${ICONS.check}</span>
-          <span>${result.validRows > 0 ? "Parsed income rows" : "No usable income rows yet"}</span>
-          <strong>${escapeHtml(result.validRows)} of ${escapeHtml(result.totalRows)}</strong>
+          <span>${result.validRows > 0 ? t("Parsed income rows") : t("No usable income rows yet")}</span>
+          <strong>${escapeHtml(result.validRows)}${t(" of ")}${escapeHtml(result.totalRows)}</strong>
         </div>
         ${result.errors.length ? `
           <div class="status-item">
             <span class="status-warn">${ICONS.alert}</span>
-            <span>Rows skipped safely</span>
+            <span>${t("Rows skipped safely")}</span>
             <strong>${escapeHtml(result.errors.length)}</strong>
           </div>
         ` : ""}
       </div>
       ${result.errors.length ? `
         <div class="warning-box">
-          <div class="warning-title">${ICONS.alert}<span>We skipped malformed rows instead of crashing.</span></div>
+          <div class="warning-title">${ICONS.alert}<span>${t("We skipped malformed rows instead of crashing.")}</span></div>
           <table class="issues-table">
-            <thead><tr><th>Row</th><th>Issue</th></tr></thead>
+            <thead><tr><th>${t("Row")}</th><th>${t("Issue")}</th></tr></thead>
             <tbody>${issueRows}</tbody>
           </table>
         </div>
       ` : ""}
-      ${!state.profile ? `<p class="error-note">Add at least one valid credit/income row to continue.</p>` : ""}
+      ${!state.profile ? `<p class="error-note">${t("Add at least one valid credit/income row to continue.")}</p>` : ""}
     </section>
   `;
 }
@@ -1294,14 +1597,14 @@ function renderDashboard(activeView = "Dashboard") {
     <article class="google-card card-analytics">
       <div class="google-card-header">
         ${ICONS.bars}
-        <span>Income Analytics</span>
+        <span>${t("Income Analytics")}</span>
       </div>
-      <h3 class="google-card-title">Daily earnings trend and variations</h3>
+      <h3 class="google-card-title">${t("Daily earnings trend and variations")}</h3>
       <div class="google-card-body">
         ${renderIncomeChart(profile)}
       </div>
       <div class="google-card-footer">
-        <span>Analyzed period: ${dateLabel(profile.start)} to ${dateLabel(profile.end)}</span>
+        <span>${t("Analyzed period:")} ${dateLabel(profile.start)}${t(" to ")}${dateLabel(profile.end)}</span>
       </div>
     </article>
   `;
@@ -1311,20 +1614,20 @@ function renderDashboard(activeView = "Dashboard") {
     <article class="google-card card-savings">
       <div class="google-card-header">
         ${ICONS.wallet}
-        <span>Smart Suggestion</span>
+        <span>${t("Smart Suggestion")}</span>
       </div>
-      <h3 class="google-card-title">Arithmetic-based micro-savings rule</h3>
+      <h3 class="google-card-title">${t("Arithmetic-based micro-savings rule")}</h3>
       <div class="google-card-body">
         <div class="savings-highlight">
-          <strong>Save ${formatMoney(profile.savings.savePerGoodDay)}</strong>
-          <span>on days earning above ${formatMoney(profile.goodThreshold)}</span>
+          <strong>${t("Save Rs")} ${formatMoney(profile.savings.savePerGoodDay)}</strong>
+          <span>${t("on days earning above")} ${formatMoney(profile.goodThreshold)}</span>
         </div>
         <p class="copy" style="font-size: 0.9rem; margin-top: 10px;">
-          Tied to your actual data, this habit will accumulate about <strong>${formatMoney(profile.savings.monthlySaving)}/month</strong> and cover up to <strong>${profile.savings.coveredLowDays}</strong> low-income days.
+          ${t("Tied to your actual data, this habit will accumulate about")} <strong>${formatMoney(profile.savings.monthlySaving)}/month</strong> ${t("and cover up to")} <strong>${profile.savings.coveredLowDays}</strong> ${t("low-income days.")}
         </p>
       </div>
       <div class="google-card-footer">
-        <span>Low-income threshold: ${formatMoney(profile.badThreshold)}</span>
+        <span>${t("Low-income threshold:")} ${formatMoney(profile.badThreshold)}</span>
       </div>
     </article>
   `;
@@ -1334,12 +1637,12 @@ function renderDashboard(activeView = "Dashboard") {
     <article class="google-card card-schemes">
       <div class="google-card-header">
         ${ICONS.schemes}
-        <span>Welfare Matching</span>
+        <span>${t("Welfare Matching")}</span>
       </div>
-      <h3 class="google-card-title">Eligible public schemes (${eligible.length} matched)</h3>
+      <h3 class="google-card-title">${t("Eligible public schemes (")}${eligible.length}${t(" matched)")}</h3>
       <div class="google-card-body">
         <div class="scheme-list scheme-list--compact">
-          ${shownSchemes.length ? shownSchemes.map(renderSchemeCard).join("") : `<div class="empty-state">No scheme matches found. Try adjusting search or details.</div>`}
+          ${shownSchemes.length ? shownSchemes.map(renderSchemeCard).join("") : `<div class="empty-state">${t("No scheme matches found. Try adjusting search or details.")}</div>`}
         </div>
       </div>
     </article>
@@ -1350,17 +1653,17 @@ function renderDashboard(activeView = "Dashboard") {
     <article class="google-card card-summary">
       <div class="google-card-header">
         ${ICONS.share}
-        <span>Share Summary</span>
+        <span>${t("Share Summary")}</span>
       </div>
-      <h3 class="google-card-title">Export your secure worker profile</h3>
+      <h3 class="google-card-title">${t("Export your secure worker profile")}</h3>
       <div class="google-card-body">
         <p class="copy" style="font-size: 0.88rem; margin-bottom: 12px;">
-          Generate a portable summary of your checked parameters. No raw bank records are saved or shared.
+          ${t("Generate a portable summary of your checked parameters. No raw bank records are saved or shared.")}
         </p>
-        <button class="primary-btn share-btn-google" type="button" data-share>${ICONS.share} Share summary text</button>
+        <button class="primary-btn share-btn-google" type="button" data-share>${ICONS.share} ${t("Share summary text")}</button>
       </div>
       <div class="google-card-footer">
-        <span>Session code: +91 ${state.session.phone.slice(-4)}</span>
+        <span>${t("Session code:")} +91 ${state.session.phone.slice(-4)}</span>
       </div>
     </article>
   `;
@@ -1454,22 +1757,22 @@ function renderIncomeChart(profile) {
   return `
     <div class="chart-card-google">
       <div class="chart-head-google">
-        <strong>${formatMoney(profile.totalIncome)}</strong><span>total parsed credit</span>
+        <strong>${formatMoney(profile.totalIncome)}</strong><span>${t("total parsed credit")}</span>
       </div>
-      <div class="bar-chart" style="grid-template-columns: repeat(${profile.dailySeries.length}, 1fr); gap: 4px;" role="img" aria-label="Daily income bar chart">${bars}</div>
+      <div class="bar-chart" style="grid-template-columns: repeat(${profile.dailySeries.length}, 1fr); gap: 4px;" role="img" aria-label="${t("Daily income bar chart")}">${bars}</div>
       <div class="bar-labels"><span>${dateLabel(profile.start)}</span><span>${dateLabel(profile.end)}</span></div>
       <div class="stats-grid-google">
         <div class="stat-item-google">
-          <span>Daily Avg</span>
+          <span>${t("Daily Avg")}</span>
           <strong>${formatMoney(profile.averageDaily)}</strong>
         </div>
         <div class="stat-item-google">
-          <span>Good Days</span>
-          <strong style="color: var(--green);">${profile.goodDays}</strong>
+          <span>${t("Good Days")}</span>
+          <strong class="chart-good-count">${profile.goodDays}</strong>
         </div>
         <div class="stat-item-google">
-          <span>Bad Days</span>
-          <strong style="color: var(--saffron);">${profile.badDays}</strong>
+          <span>${t("Bad Days")}</span>
+          <strong class="chart-bad-count">${profile.badDays}</strong>
         </div>
       </div>
     </div>
@@ -1479,8 +1782,8 @@ function renderIncomeChart(profile) {
 function renderSchemeCard(match) {
   const url = getAllowedUrl(match);
   const reason = match.eligible
-    ? `You qualify because your ${match.reasons.slice(0, 2).join(" and ")}.`
-    : `Close match: ${match.reasons[0] || "some details match"}, but ${match.misses[0]}.`;
+    ? `${t("You qualify because your ")}${match.reasons.slice(0, 2).join(t(" and "))}.`
+    : `${t("Close match: ")}${match.reasons[0] || t("some details match")}${t(", but ")}${match.misses[0]}.`;
 
   const minAge = match.eligibility ? match.eligibility.minAge : match.minAge;
   const maxAge = match.eligibility ? match.eligibility.maxAge : match.maxAge;
@@ -1497,19 +1800,19 @@ function renderSchemeCard(match) {
       </div>
       <p>${escapeHtml(reason)}</p>
       <div class="scheme-meta">
-        <span class="tag">${match.eligible ? "Eligible" : `${match.passed}/${match.required} matched`}</span>
-        <span class="tag">Age ${minAge}-${maxAge}</span>
-        ${maxIncome ? `<span class="tag">Income <= ${formatMoney(maxIncome)}</span>` : ""}
+        <span class="tag">${match.eligible ? t("Eligible") : `${match.passed}/${match.required} ${t("matched")}`}</span>
+        <span class="tag">${t("Age")} ${minAge}-${maxAge}</span>
+        ${maxIncome ? `<span class="tag">${t("Income")} <= ${formatMoney(maxIncome)}</span>` : ""}
       </div>
       ${url ? `
         <div class="destination-secure">
           <div class="secure-badge">
             ${ICONS.shield}
-            <span>Verified Official Portal</span>
+            <span>${t("Verified Official Portal")}</span>
           </div>
-          <p class="destination-domain">Destination: <strong>${escapeHtml(url.hostname)}</strong></p>
+          <p class="destination-domain">${t("Destination:")} <strong>${escapeHtml(url.hostname)}</strong></p>
           <button class="secure-link-btn" type="button" data-guide-scheme="${match.id}">
-            <span>Guide me & Apply</span>
+            <span>${t("Guide me & Apply")}</span>
             ${ICONS.external}
           </button>
         </div>
@@ -1520,7 +1823,7 @@ function renderSchemeCard(match) {
 
 function renderBottomNav(active) {
   return `
-    <nav class="bottom-nav" aria-label="Main navigation">
+    <nav class="bottom-nav" aria-label="${t("Main navigation")}">
       ${bottomNavButton("Dashboard", ICONS.home, active === "Dashboard")}
       ${bottomNavButton("Upload", ICONS.upload, active === "Upload")}
       ${bottomNavButton("Insights", ICONS.bars, active === "Insights")}
@@ -1531,15 +1834,14 @@ function renderBottomNav(active) {
 }
 
 function bottomNavButton(label, icon, active) {
-  return `<button type="button" class="${active ? "is-active" : ""}" data-bottom-nav="${escapeHtml(label)}">${icon}<span>${escapeHtml(label)}</span></button>`;
+  return `<button type="button" class="${active ? "is-active" : ""}" data-bottom-nav="${escapeHtml(label)}">${icon}<span>${escapeHtml(t(label))}</span></button>`;
 }
 
 function bindBottomNav() {
   document.querySelectorAll("[data-bottom-nav]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.dataset.bottomNav === "More" && state.profile) {
-        state.shareOpen = true;
-        render();
+      if (button.dataset.bottomNav === "More") {
+        toggleMoreMenu();
         return;
       }
       navigateTo(button.dataset.bottomNav);
@@ -1547,17 +1849,52 @@ function bindBottomNav() {
   });
 }
 
+function toggleMoreMenu() {
+  const existing = document.querySelector(".more-menu-overlay");
+  if (existing) {
+    existing.remove();
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "more-menu-overlay";
+  overlay.innerHTML = `
+    <div class="more-menu">
+      ${state.profile ? `<button type="button" class="more-menu-item" data-more-action="share">${ICONS.share}<span>${t("Share Summary")}</span></button>` : ""}
+      ${state.profile ? `<button type="button" class="more-menu-item" data-more-action="export">${ICONS.file}<span>${t("Export Card")}</span></button>` : ""}
+      ${state.session ? `<button type="button" class="more-menu-item more-menu-danger" data-more-action="purge">${ICONS.alert}<span>${t("Purge Session")}</span></button>` : ""}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      return;
+    }
+    const action = e.target.closest("[data-more-action]")?.dataset.moreAction;
+    if (!action) return;
+    overlay.remove();
+    if (action === "share") {
+      state.shareOpen = true;
+      render();
+    } else if (action === "export") {
+      exportWorkerCard();
+    } else if (action === "purge") {
+      purgeSession();
+    }
+  });
+}
+
 function shareSummaryText() {
   const profile = state.profile;
   const eligible = state.matches.filter((item) => item.eligible).slice(0, 3);
   return [
-    "Kaam Card summary",
-    `Phone session: +91 ${state.session?.phone || "demo"}`,
-    `Average daily income: ${formatMoney(profile.averageDaily)}`,
-    `Good days: ${profile.goodDays}; bad days: ${profile.badDays}`,
-    `Saving rule: save ${formatMoney(profile.savings.savePerGoodDay)} on days above ${formatMoney(profile.goodThreshold)}.`,
-    `Likely schemes: ${eligible.map((item) => item.shortName).join(", ") || "No exact match yet"}`,
-    "Demo note: eligibility is simplified and should be verified on the official portal."
+    t("Kaam Card summary"),
+    `${t("Phone session:")} +91 ${state.session?.phone || "demo"}`,
+    `${t("Average daily income:")} ${formatMoney(profile.averageDaily)}`,
+    `${t("Good days:")} ${profile.goodDays}; ${t("bad days:")} ${profile.badDays}`,
+    `${t("Saving rule: save")} ${formatMoney(profile.savings.savePerGoodDay)} ${t("on days above")} ${formatMoney(profile.goodThreshold)}.`,
+    `${t("Likely schemes:")} ${eligible.map((item) => item.shortName).join(", ") || t("No exact match yet")}`,
+    t("Demo note: eligibility is simplified and should be verified on the official portal.")
   ].join("\n");
 }
 
@@ -1565,17 +1902,18 @@ function renderShareModal() {
   return `
     <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="share-title">
       <section class="share-card">
-        <h2 id="share-title">Shareable summary</h2>
-        <p class="copy">This is a simple text summary for the demo. No raw transactions are included.</p>
+        <h2 id="share-title">${t("Shareable summary")}</h2>
+        <p class="copy">${t("This is a simple text summary for the demo. No raw transactions are included.")}</p>
         <textarea class="share-text" readonly>${escapeHtml(shareSummaryText())}</textarea>
         <div class="share-actions">
-          <button class="secondary-btn" type="button" data-close-share>Close</button>
-          <button class="primary-btn" type="button" data-copy-share>${ICONS.copy} ${state.copied ? "Copied" : "Copy"}</button>
+          <button class="secondary-btn" type="button" data-close-share>${t("Close")}</button>
+          <button class="secondary-btn" type="button" data-export-card>${ICONS.file} ${t("Export Card")}</button>
+          <button class="primary-btn" type="button" data-copy-share>${ICONS.copy} ${state.copied ? t("Copied") : t("Copy")}</button>
         </div>
-        <div class="danger-zone" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);">
-          <h3 style="font-size: 0.95rem; margin: 0 0 8px; color: var(--red);">Danger Zone</h3>
-          <p class="copy" style="font-size: 0.8rem; margin-bottom: 10px;">This will completely clear your parsed income profile and reset the session.</p>
-          <button class="purge-session-btn danger" type="button" data-purge-session style="width: 100%">${ICONS.alert} Clear & Purge Session Data</button>
+        <div class="danger-zone-section">
+          <h3 class="danger-zone-title">${t("Danger Zone")}</h3>
+          <p class="copy danger-zone-desc">${t("This will completely clear your parsed income profile and reset the session.")}</p>
+          <button class="purge-session-btn danger-zone-purge" type="button" data-purge-session>${ICONS.alert} ${t("Clear & Purge Session Data")}</button>
         </div>
       </section>
     </div>
@@ -1606,59 +1944,98 @@ function bindShareModal() {
     });
   }
 
+  const exportCard = document.querySelector("[data-export-card]");
+  if (exportCard) {
+    exportCard.addEventListener("click", () => exportWorkerCard());
+  }
+
   bindPurgeSession();
 }
 
-function initCustomCursor() {
-  const finePointer = window.matchMedia("(pointer: fine)");
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  if (!finePointer.matches || reducedMotion.matches) return;
+function exportWorkerCard() {
+  const profile = state.profile;
+  const eligible = state.matches.filter((item) => item.eligible).slice(0, 5);
+  const phone = state.session?.phone || "demo";
+  const workerName = `${t("Worker ")}${phone.slice(-4)}`;
 
-  const root = document.documentElement;
-  const dot = document.createElement("span");
-  const ring = document.createElement("span");
-  let cursorX = window.innerWidth / 2;
-  let cursorY = window.innerHeight / 2;
-  let ringX = cursorX;
-  let ringY = cursorY;
+  const cardHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaam Card - ${escapeHtml(workerName)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F9F8F6; display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); max-width: 480px; width: 100%; overflow: hidden; }
+  .card-header { background: linear-gradient(135deg, #C85A32, #B04E2D); color: #fff; padding: 24px; text-align: center; }
+  .card-header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+  .card-header p { font-size: 0.85rem; opacity: 0.9; }
+  .card-body { padding: 20px 24px; }
+  .section { margin-bottom: 16px; }
+  .section:last-child { margin-bottom: 0; }
+  .section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #8C857B; margin-bottom: 8px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat { background: #F0EEE9; border-radius: 8px; padding: 12px; }
+  .stat-label { font-size: 0.72rem; color: #8C857B; font-weight: 700; }
+  .stat-value { font-size: 1.1rem; font-weight: 800; color: #1A1A1A; }
+  .savings-box { background: linear-gradient(135deg, #F5E8E2, #F9F8F6); border: 1px solid #E8E5DE; border-radius: 10px; padding: 14px; text-align: center; }
+  .savings-amount { font-size: 1.3rem; font-weight: 800; color: #C85A32; }
+  .savings-label { font-size: 0.8rem; color: #8C857B; margin-top: 4px; }
+  .scheme-list { list-style: none; }
+  .scheme-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #E8E5DE; font-size: 0.85rem; }
+  .scheme-item:last-child { border-bottom: none; }
+  .scheme-dot { width: 8px; height: 8px; border-radius: 50%; background: #C85A32; flex-shrink: 0; }
+  .card-footer { background: #F0EEE9; padding: 16px 24px; text-align: center; font-size: 0.75rem; color: #8C857B; border-top: 1px solid #E8E5DE; }
+  @media print { body { background: none; padding: 0; } .card { box-shadow: none; border: 1px solid #D9D5CC; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <h1>${t("Kaam Card")}</h1>
+    <p>${escapeHtml(workerName)}${t(" | +91 ")}${escapeHtml(phone)}</p>
+  </div>
+  <div class="card-body">
+    <div class="section">
+      <div class="section-title">${t("Income Profile")}</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">${t("Daily Average")}</div><div class="stat-value">${formatMoney(profile.averageDaily)}</div></div>
+        <div class="stat"><div class="stat-label">${t("Monthly Estimate")}</div><div class="stat-value">${formatMoney(profile.monthlyIncomeEstimate)}</div></div>
+        <div class="stat"><div class="stat-label">${t("Good Days")}</div><div class="stat-value">${profile.goodDays}</div></div>
+        <div class="stat"><div class="stat-label">${t("Low Days")}</div><div class="stat-value">${profile.badDays}</div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">${t("Savings Recommendation")}</div>
+      <div class="savings-box">
+        <div class="savings-amount">${formatMoney(profile.savings.monthlySaving)}${t("/month")}</div>
+        <div class="savings-label">${t("Save ")}${formatMoney(profile.savings.savePerGoodDay)}${t(" on good days (above ")}${formatMoney(profile.goodThreshold)}${t(")")}</div>
+      </div>
+    </div>
+    ${eligible.length > 0 ? `
+    <div class="section">
+      <div class="section-title">${t("Matched Welfare Schemes")}</div>
+      <ul class="scheme-list">
+        ${eligible.map((s) => `<li class="scheme-item"><span class="scheme-dot"></span><strong>${escapeHtml(s.shortName)}</strong> &mdash; ${escapeHtml(s.benefit || s.description || "")}</li>`).join("")}
+      </ul>
+    </div>` : ""}
+  </div>
+  <div class="card-footer">
+    ${t("Generated by Kaam Card | Eligibility is simplified, verify on official portals")}
+  </div>
+</div>
+</body>
+</html>`;
 
-  dot.className = "custom-cursor";
-  ring.className = "custom-cursor-ring";
-  dot.setAttribute("aria-hidden", "true");
-  ring.setAttribute("aria-hidden", "true");
-  document.body.append(dot, ring);
-  root.classList.add("has-custom-cursor");
-
-  function isInteractive(target) {
-    return (
-      target instanceof Element &&
-      Boolean(target.closest("a, button, input, select, textarea, label, [role='button'], .upload-zone"))
-    );
+  const cardWindow = window.open("", "_blank");
+  if (cardWindow) {
+    cardWindow.document.write(cardHtml);
+    cardWindow.document.close();
+    addAuditLog("Exported worker card to printable view.");
   }
-
-  function moveCursor(event) {
-    cursorX = event.clientX;
-    cursorY = event.clientY;
-    root.style.setProperty("--cursor-x", `${cursorX}px`);
-    root.style.setProperty("--cursor-y", `${cursorY}px`);
-    root.classList.add("is-cursor-visible");
-    root.classList.toggle("is-cursor-active", isInteractive(event.target));
-  }
-
-  function animateRing() {
-    ringX += (cursorX - ringX) * 0.22;
-    ringY += (cursorY - ringY) * 0.22;
-    root.style.setProperty("--cursor-ring-x", `${ringX}px`);
-    root.style.setProperty("--cursor-ring-y", `${ringY}px`);
-    requestAnimationFrame(animateRing);
-  }
-
-  document.addEventListener("pointermove", moveCursor, { passive: true });
-  document.addEventListener("pointerleave", () => root.classList.remove("is-cursor-visible"));
-  document.addEventListener("pointerdown", () => root.classList.add("is-cursor-pressed"));
-  document.addEventListener("pointerup", () => root.classList.remove("is-cursor-pressed"));
-  requestAnimationFrame(animateRing);
 }
+
 
 function initInteractiveGridPattern() {
   const finePointer = window.matchMedia("(pointer: fine)");
@@ -1688,7 +2065,7 @@ function renderLanding() {
     <div class="landing-page">
       <!-- Header -->
       <header class="landing-header">
-        <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>${t("Kaam Card")}</span></div>
+        <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
         <div class="landing-header__actions">
           ${renderThemeToggle("compact")}
           <button class="primary-btn landing-login-btn" type="button" data-login-cta>${t("LOG IN / START")}</button>
@@ -1696,72 +2073,42 @@ function renderLanding() {
       </header>
 
       <!-- Hero Section -->
-      <section class="landing-hero" aria-labelledby="hero-title">
+      <section class="landing-hero section-with-blobs" aria-labelledby="hero-title">
+        <div class="section-blob blob-1"></div>
         <div class="landing-hero__content">
           <h1 id="hero-title" class="hero-main-title">
-            ${state.lang === "hi"
-              ? `२ मिनट में <span class="text-gradient">प्लेटफ़ॉर्म कमाई</span> से <span class="text-gradient">कल्याणकारी योजनाओं</span> तक जाएँ।`
-              : `Go from <span class="text-gradient">Platform Earnings</span> to <span class="text-gradient">Welfare Benefits</span> in 2 Minutes.`}
+            <span class="text-gradient">${t("Go from Platform Earnings to Welfare Benefits in 2 Minutes.")}</span>
           </h1>
           <p class="hero-subtitle">
-            ${state.lang === "hi"
-              ? `काम कार्ड असंगठित और गिग श्रमिकों के लिए एक सुरक्षित रिकॉर्ड है। आसानी से अपने यूपीआई स्टेटमेंट को सत्यापित आय प्रोफ़ाइल में बदलें, योजनाओं की जांच करें और बचत करें।`
-              : `Kaam Card is a portable, secure record for informal and gig workers. Easily turn your UPI statement into a verified income profile, check eligibility for government schemes, and build micro-savings suggestions.`}
+            ${t("Kaam Card is a portable, secure record for informal and gig workers.")}
           </p>
           <div class="hero-ctas">
-            <button class="primary-btn hero-cta-btn" type="button" data-login-cta>${t("Create Your Kaam Card")}</button>
-            <a href="#how-it-works" class="secondary-btn hero-sec-btn">${t("How it Works")}</a>
+            <button class="cta-displace" type="button" data-login-cta>${t("Create Your Kaam Card")}</button>
           </div>
           <div class="hero-trust">
             <span class="trust-badge">${ICONS.shield} ${t("100% Private: No Aadhaar or PAN stored")}</span>
             <span class="trust-badge">${ICONS.check} ${t("Safe: In-memory processing")}</span>
           </div>
         </div>
-        <div class="landing-hero__preview">
-          <div class="preview-card">
-            <div class="preview-header">
-              <span class="preview-dot"></span>
-              <span class="preview-dot"></span>
-              <span class="preview-dot"></span>
-              <span class="preview-title">Income Summary Mockup</span>
-            </div>
-            <div class="preview-body">
-              <div class="mock-stat">
-                <span>Average Daily Income</span>
-                <strong>Rs 780/day</strong>
-              </div>
-              <div class="mock-chart">
-                <span class="mock-bar" style="height: 60%"></span>
-                <span class="mock-bar" style="height: 80%"></span>
-                <span class="mock-bar" style="height: 40%"></span>
-                <span class="mock-bar" style="height: 95%"></span>
-                <span class="mock-bar" style="height: 70%"></span>
-              </div>
-              <div class="mock-scheme">
-                <span class="scheme-badge saffron">Eligible</span>
-                <strong>PM Shram Yogi Maandhan</strong>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
-      <!-- Key Benefits / Value Proposition Section -->
-      <section class="landing-benefits" id="benefits" aria-labelledby="benefits-title">
-        <h2 id="benefits-title" class="section-title">${t("Why Kaam Card?")}</h2>
+      <!-- Key Benefits / What We Do -->
+      <section class="landing-benefits section-with-blobs" id="benefits" aria-labelledby="benefits-title">
+        <div class="section-blob blob-2"></div>
+        <h2 id="benefits-title" class="section-title">${t("What We Do")}</h2>
         <p class="section-subtitle">${t("We help gig workers accumulate data value that is normally locked away in siloed apps.")}</p>
         <div class="benefits-grid">
-          <div class="benefit-item">
+          <div class="benefit-item displace-card">
             <div class="benefit-icon green">${ICONS.bars}</div>
             <h3>${t("Income Analytics")}</h3>
             <p>${t("Understand your earnings variance, good days vs bad days, and average monthly income instantly.")}</p>
           </div>
-          <div class="benefit-item">
+          <div class="benefit-item displace-card">
             <div class="benefit-icon blue">${ICONS.schemes}</div>
             <h3>${t("Scheme Matching")}</h3>
             <p>${t("Automatically match your computed income against real criteria for e-Shram, PM-SYM, PM-JAY, and more.")}</p>
           </div>
-          <div class="benefit-item">
+          <div class="benefit-item displace-card">
             <div class="benefit-icon saffron">${ICONS.wallet}</div>
             <h3>${t("Smart Micro-Savings")}</h3>
             <p>${t("Get a mathematically grounded savings rule based on your actual income surplus on high-earning days.")}</p>
@@ -1769,80 +2116,125 @@ function renderLanding() {
         </div>
       </section>
 
-      <!-- How it Works Section -->
-      <section class="landing-steps" id="how-it-works" aria-labelledby="steps-title">
-        <h2 id="steps-title" class="section-title">${t("Three Simple Steps")}</h2>
-        <div class="steps-grid">
-          <div class="step-card-ui">
-            <div class="step-num">1</div>
-            <h3>${t("Secure OTP Login")}</h3>
-            <p>${t("Enter your phone number to start a secure, isolated sandbox session. No passwords required.")}</p>
+      <!-- Metrics / Stats Strip -->
+      <section class="landing-metrics section-with-blobs" aria-labelledby="metrics-title">
+        <div class="section-blob blob-3"></div>
+        <h2 id="metrics-title" class="section-title">${t("Designed for India's Informal Workforce")}</h2>
+        <div class="stat-displace">
+          <div class="stat-card">
+            <div class="stat-value green">${t("2 min")}</div>
+            <div class="stat-label">${t("Average setup time")}</div>
           </div>
-          <div class="step-card-ui">
-            <div class="step-num">2</div>
-            <h3>${t("Upload Statements")}</h3>
-            <p>${t("Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.")}</p>
+          <div class="stat-card">
+            <div class="stat-value saffron">100%</div>
+            <div class="stat-label">${t("Private: No Aadhaar stored")}</div>
           </div>
-          <div class="step-card-ui">
-            <div class="step-num">3</div>
-            <h3>${t("Get Kaam Dashboard")}</h3>
-            <p>${t("Instantly check eligible schemes, review savings recommendations, and export your portable worker card.")}</p>
+          <div class="stat-card">
+            <div class="stat-value blue">${t("Zero")}</div>
+            <div class="stat-label">${t("Data stored on servers")}</div>
           </div>
         </div>
       </section>
 
-      <!-- Social Proof / Testimonials Section -->
-      <section class="landing-social" id="testimonials" aria-labelledby="social-title">
+      <!-- How it Works -->
+      <section class="landing-steps section-with-blobs" id="how-it-works" aria-labelledby="steps-title">
+        <div class="section-blob blob-4"></div>
+        <h2 id="steps-title" class="section-title">${t("Three Simple Steps")}</h2>
+        <p class="section-subtitle">${t("From phone to dashboard in under 2 minutes")}</p>
+        <div style="display:flex;flex-direction:column;gap:24px;max-width:640px;margin:0 auto">
+          <div class="step-nom">
+            <div class="step-nom__num">1</div>
+            <div class="step-nom__body">
+              <h3>${t("Secure OTP Login")}</h3>
+              <p>${t("Enter your phone number to start a secure, isolated sandbox session. No passwords required.")}</p>
+            </div>
+          </div>
+          <div class="step-nom">
+            <div class="step-nom__num">2</div>
+            <div class="step-nom__body">
+              <h3>${t("Upload Statements")}</h3>
+              <p>${t("Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.")}</p>
+            </div>
+          </div>
+          <div class="step-nom">
+            <div class="step-nom__num">3</div>
+            <div class="step-nom__body">
+              <h3>${t("Get Kaam Dashboard")}</h3>
+              <p>${t("Instantly check eligible schemes, review savings recommendations, and export your portable worker card.")}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Testimonials -->
+      <section class="landing-social section-with-blobs" id="testimonials" aria-labelledby="social-title">
+        <div class="section-blob blob-2"></div>
         <h2 id="social-title" class="section-title">${t("Loved by Workers")}</h2>
         <p class="section-subtitle">${t("Hear from informal partners who verified their scheme eligibility using Kaam Card.")}</p>
-        <div class="testimonials-grid">
+        <div class="benefits-grid testimonial-displace">
           <blockquote>
-            <p class="quote">"Using Kaam Card took less than 2 minutes. It computed my average daily income and showed me I qualified for PM-SYM pension. I registered the same day!"</p>
+            <p class="quote">"${t("Using Kaam Card took less than 2 minutes. It computed my average daily income and showed me I qualified for PM-SYM pension. I registered the same day!")}"</p>
             <cite>
               <strong>Rajesh Kumar</strong>
-              <span>${state.lang === "hi" ? "डिलीवरी पार्टनर, दिल्ली" : "Delivery Partner, Delhi"}</span>
+              <span>${t("Delivery Partner, Delhi")}</span>
             </cite>
           </blockquote>
           <blockquote>
-            <p class="quote">"I always wanted to save but didn't know how much. The good-day surplus savings suggestion helped me set aside money on busy weekends to cover dry weekdays."</p>
+            <p class="quote">"${t("I always wanted to save but didn't know how much. The good-day surplus savings suggestion helped me set aside money on busy weekends to cover dry weekdays.")}"</p>
             <cite>
               <strong>Amit Mishra</strong>
-              <span>${state.lang === "hi" ? "कैब ड्राइवर, मुंबई" : "Cab Driver, Mumbai"}</span>
+              <span>${t("Cab Driver, Mumbai")}</span>
             </cite>
           </blockquote>
           <blockquote>
-            <p class="quote">"I was worried about sharing bank logs, but Kaam Card's privacy focus is amazing. It runs on my browser and doesn't store my Aadhaar or transaction lists."</p>
+            <p class="quote">"${t("I was worried about sharing bank logs, but Kaam Card's privacy focus is amazing. It runs on my browser and doesn't store my Aadhaar or transaction lists.")}"</p>
             <cite>
               <strong>Sunita Devi</strong>
-              <span>${state.lang === "hi" ? "घरेलू कार्यकर्ता, बेंगलुरु" : "Domestic Worker, Bangalore"}</span>
+              <span>${t("Domestic Worker, Bangalore")}</span>
             </cite>
           </blockquote>
         </div>
       </section>
 
-      <!-- Contact / Support Section -->
-      <section class="landing-contact" id="contact" aria-labelledby="contact-title">
+      <!-- CTA / Contact -->
+      <section class="landing-contact section-with-blobs" id="contact" aria-labelledby="contact-title">
+        <div class="section-blob blob-1"></div>
         <div class="contact-box">
-          <h2 id="contact-title">Need help checking eligibility?</h2>
-          <p>We are dedicated to supporting digital portability for India's gig economy. If you have questions about the pilot or scheme integration, get in touch.</p>
+          <h2 id="contact-title">${t("Need help checking eligibility?")}</h2>
+          <p>${t("We are dedicated to supporting digital portability for India's gig economy. If you have questions about the pilot or scheme integration, get in touch.")}</p>
+          <div class="hero-ctas" style="margin-bottom:16px">
+            <button class="cta-displace" type="button" data-login-cta>${t("Create Your Kaam Card")}</button>
+          </div>
           <div class="contact-methods">
             <div class="contact-method">${ICONS.shield} <span>support@kaamcard.nic.in</span></div>
-            <div class="contact-method">${ICONS.rupee} <span>Toll-free Helpdesk: 1800-XXX-XXXX</span></div>
+            <div class="contact-method">${ICONS.rupee} <span>${t("Toll-free Helpdesk: 1800-11-0031 (Demo)")}</span></div>
           </div>
         </div>
       </section>
 
       <!-- Footer -->
       <footer class="landing-footer">
-        <div class="footer-brand">
-          <div class="brand" data-go-home style="cursor: pointer">${brandMark()}<span>Kaam Card</span></div>
-          <p>© 2026 Kaam Card. Empowering Indian gig workers with portable data identity.</p>
-        </div>
-        <div class="footer-links">
-          <a href="#benefits">Features</a>
-          <a href="#how-it-works">Process</a>
-          <a href="#testimonials">Reviews</a>
-          <a href="#contact">Contact</a>
+        <div class="footer-grid">
+          <div class="footer-col">
+            <h4>${t("Product")}</h4>
+            <a href="#benefits">${t("Features")}</a>
+            <a href="#how-it-works">${t("How it Works")}</a>
+            <a href="#testimonials">${t("Testimonials")}</a>
+          </div>
+          <div class="footer-col">
+            <h4>${t("Support")}</h4>
+            <a href="#contact">${t("Contact")}</a>
+            <a href="mailto:support@kaamcard.nic.in">${t("Email")}</a>
+          </div>
+          <div class="footer-col">
+            <h4>${t("Legal")}</h4>
+            <a href="#">${t("Privacy")}</a>
+            <a href="#">${t("Terms")}</a>
+          </div>
+          <div class="footer-col" style="grid-column:1/-1;text-align:center;padding-top:16px;border-top:1px solid var(--line);font-size:0.82rem;color:var(--muted)">
+            <div class="brand brand-clickable" data-go-home style="justify-content:center;margin-bottom:8px">${brandMark()}<span>${t("Kaam Card")}</span></div>
+            <p>${t("© 2026 Kaam Card.")} ${t("Empowering Indian gig workers with portable data identity.")}</p>
+          </div>
         </div>
       </footer>
     </div>
@@ -1869,27 +2261,52 @@ function bindLandingActions() {
       render();
     });
   });
+  bindScrollAnimations();
+}
+
+function bindScrollAnimations() {
+  const targets = document.querySelectorAll(".landing-page section, .benefit-item, .step-nom, .testimonial-displace blockquote, .stat-card, .contact-box, .landing-header");
+  if (!targets.length) return;
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.style.setProperty("--anim-state", "running");
+        obs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: "0px 0px -40px 0px" });
+  targets.forEach((el, i) => {
+    el.style.setProperty("--anim-state", "paused");
+    el.style.setProperty("--anim-delay", `${i * 0.05}s`);
+    el.style.animation = "fadeInUp 0.5s ease both";
+    el.style.animationDelay = "var(--anim-delay)";
+    el.style.animationPlayState = "var(--anim-state)";
+    obs.observe(el);
+  });
 }
 
 function purgeSession() {
+  API.purgeSession().catch(() => {});
   state.session = null;
   state.profile = null;
   state.parseResult = null;
   state.matches = [];
   state.phoneDraft = "";
+  state.otpDebugCode = null;
   state.details = { age: 29, occupation: "Delivery worker", state: "Delhi" };
   state.route = "landing";
   state.shareOpen = false;
   state.consentGiven = false;
   state.auditLogs = [];
   state.schemeQuery = "";
+  clearSessionStorage();
   render();
 }
 
 function bindPurgeSession() {
   document.querySelectorAll("[data-purge-session]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (confirm("Are you sure you want to end your session and delete all parsed data? This cannot be undone.")) {
+      if (confirm(t("Are you sure you want to end your session and delete all parsed data? This cannot be undone."))) {
         purgeSession();
       }
     });
@@ -1922,8 +2339,7 @@ function renderRightSidebar() {
   const resourceItems = [
     { name: "e-Shram Rules & Benefits.pdf", type: "doc", url: "https://eshram.gov.in/" },
     { name: "PM-SYM Scheme Guidelines.pdf", type: "doc", url: "https://www.labour.gov.in/pm-sym" },
-    { name: "Ayushman Bharat Portal.doc", type: "doc", url: "https://www.pmjay.gov.in/" },
-    { name: "Kaam Card CSV Template.csv", type: "sheet", url: "#" }
+    { name: "Ayushman Bharat Portal.doc", type: "doc", url: "https://www.pmjay.gov.in/" }
   ].map((res) => `
     <a href="${escapeHtml(res.url)}" target="_blank" class="resource-item" rel="noopener noreferrer">
       <span class="resource-icon ${res.type}">
@@ -1934,25 +2350,25 @@ function renderRightSidebar() {
   `).join("");
 
   return `
-    <aside class="right-sidebar" aria-label="Welfare Knowledge & Security Logs">
+    <aside class="right-sidebar" aria-label="${t("Welfare Knowledge & Security Logs")}">
       <div class="right-sidebar__section">
-        <label for="scheme-search" class="field-label search-label">Search matched schemes</label>
+        <label for="scheme-search" class="field-label search-label">${t("Search matched schemes")}</label>
         <div class="search-input-wrapper">
-          <input type="text" id="scheme-search" placeholder="Type scheme name..." value="${escapeHtml(state.schemeQuery || "")}">
+          <input type="text" id="scheme-search" placeholder="${t("Type scheme name...")}" value="${escapeHtml(state.schemeQuery || "")}">
         </div>
       </div>
       
       <div class="right-sidebar__section">
-        <h3 class="sidebar-heading">Knowledge Resources</h3>
+        <h3 class="sidebar-heading">${t("Knowledge Resources")}</h3>
         <div class="resources-list">
           ${resourceItems}
         </div>
       </div>
       
       <div class="right-sidebar__section">
-        <h3 class="sidebar-heading">Local Security Audit Trail</h3>
+        <h3 class="sidebar-heading">${t("Local Security Audit Trail")}</h3>
         <div class="audit-logs-list">
-          ${logItems || '<div class="empty-logs">No actions logged yet.</div>'}
+          ${logItems || `<div class="empty-logs">${t("No actions logged yet.")}</div>`}
         </div>
       </div>
     </aside>
@@ -1962,14 +2378,18 @@ function renderRightSidebar() {
 function bindRightSidebarEvents() {
   const searchInput = document.querySelector("#scheme-search");
   if (searchInput) {
+    let searchTimer;
     searchInput.addEventListener("input", (event) => {
-      state.schemeQuery = event.target.value;
-      render();
-      const newInput = document.querySelector("#scheme-search");
-      if (newInput) {
-        newInput.focus();
-        newInput.setSelectionRange(newInput.value.length, newInput.value.length);
-      }
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        state.schemeQuery = event.target.value;
+        render();
+        const newInput = document.querySelector("#scheme-search");
+        if (newInput) {
+          newInput.focus();
+          newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+        }
+      }, 200);
     });
   }
 }
@@ -1996,6 +2416,13 @@ function render() {
   if (state.route === "dashboard") renderDashboard();
   if (state.route === "insights") renderDashboard("Insights");
   if (state.route === "schemes") renderDashboard("Schemes");
+
+  // Focus management: move focus to main content for screen readers
+  const mainContent = app.querySelector(".phone-card, .landing-hero, .screen");
+  if (mainContent && !mainContent.hasAttribute("tabindex")) {
+    mainContent.setAttribute("tabindex", "-1");
+    mainContent.focus({ preventScroll: true });
+  }
 }
 
 function renderGuidanceModal(scheme) {
@@ -2011,9 +2438,9 @@ function renderGuidanceModal(scheme) {
   let stepContent = "";
   if (step === 1) {
     const docItems = documents.map((doc) => `
-      <li class="doc-checklist-item" style="list-style: none; margin: 8px 0;">
-        <label class="doc-checkbox-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; font-size: 0.92rem;">
-          <input type="checkbox" class="doc-checkbox" style="width: 18px; height: 18px; accent-color: var(--green);">
+      <li class="guidance-doc-item">
+        <label class="guidance-doc-label">
+          <input type="checkbox" class="guidance-doc-checkbox doc-checkbox">
           <span>${escapeHtml(t(doc))}</span>
         </label>
       </li>
@@ -2021,28 +2448,28 @@ function renderGuidanceModal(scheme) {
 
     stepContent = `
       <div class="guidance-step-view">
-        <h4 class="guidance-step-title" style="font-size: 1.1rem; font-weight: 850; margin: 0 0 10px 0;">${t("Step 1: Check Required Documents")}</h4>
+        <h4 class="guidance-step-title">${t("Step 1: Check Required Documents")}</h4>
         <p class="copy" style="margin-bottom: 15px; font-size: 0.88rem;">${t("Please check off that you have these documents ready before opening the application portal:")}</p>
-        <ul class="doc-checklist" style="padding: 0; margin: 0 0 15px 0;">
+        <ul class="guidance-doc-checklist">
           ${docItems}
         </ul>
-        <div class="guidance-disclaimer" style="margin-top: 15px; padding: 12px; border-radius: 8px; background: var(--blue-soft); border: 1px solid var(--line); font-size: 0.8rem; display: flex; gap: 8px; align-items: flex-start;">
-          <span style="color: var(--blue); width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;">${ICONS.shield}</span>
-          <span style="color: var(--blue); font-weight: 700; line-height: 1.45;">${t("Kaam Card never saves or asks for copy uploads of these documents. Keep them with you locally.")}</span>
+        <div class="guidance-disclaimer">
+          <span class="guidance-disclaimer-icon">${ICONS.shield}</span>
+          <span class="guidance-disclaimer-text">${t("Kaam Card never saves or asks for copy uploads of these documents. Keep them with you locally.")}</span>
         </div>
       </div>
     `;
   } else if (step === 2) {
     const stepItems = steps.map((s, idx) => `
-      <div class="guidance-instruction-card" style="display: flex; gap: 14px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px;">
-        <div class="instruction-num" style="width: 24px; height: 24px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 0.85rem; font-weight: 800; flex: 0 0 auto;">${idx + 1}</div>
-        <p class="instruction-desc" style="margin: 0; font-size: 0.88rem; line-height: 1.45; font-weight: 700; color: var(--ink);">${escapeHtml(t(s))}</p>
+      <div class="guidance-instruction-card">
+        <div class="guidance-instruction-num">${idx + 1}</div>
+        <p class="guidance-instruction-desc">${escapeHtml(t(s))}</p>
       </div>
     `).join("");
 
     stepContent = `
       <div class="guidance-step-view">
-        <h4 class="guidance-step-title" style="font-size: 1.1rem; font-weight: 850; margin: 0 0 10px 0;">${t("Step 2: Step-by-Step Instructions")}</h4>
+        <h4 class="guidance-step-title">${t("Step 2: Step-by-Step Instructions")}</h4>
         <p class="copy" style="margin-bottom: 15px; font-size: 0.88rem;">${t("Follow these steps on the official portal to complete your registration:")}</p>
         <div class="instructions-timeline">
           ${stepItems}
@@ -2052,67 +2479,64 @@ function renderGuidanceModal(scheme) {
   } else {
     stepContent = `
       <div class="guidance-step-view" style="text-align: center;">
-        <h4 class="guidance-step-title" style="font-size: 1.1rem; font-weight: 850; margin: 0 0 10px 0;">${t("Step 3: Access Official Portal")}</h4>
+        <h4 class="guidance-step-title">${t("Step 3: Access Official Portal")}</h4>
         <p class="copy" style="margin-bottom: 20px; font-size: 0.88rem;">${t("You are now ready to visit the official website of the")} <strong>${escapeHtml(t(scheme.ministry || "Government of India"))}</strong>.</p>
         
-        <div class="destination-secure" style="text-align: left; background: var(--surface-strong); border: 1px solid var(--line-strong); border-radius: 12px; padding: 16px; margin: 15px 0;">
-          <div class="secure-badge" style="display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-            <span style="width: 14px; height: 14px;">${ICONS.shield}</span>
+        <div class="guidance-portal-card">
+          <div class="guidance-portal-badge">
+            <span class="guidance-portal-badge-icon">${ICONS.shield}</span>
             <span>${t("Verified Official Portal")}</span>
           </div>
-          <p class="destination-domain" style="margin: 0 0 12px 0; font-size: 0.86rem; color: var(--ink);">${t("Destination:")} <strong>${escapeHtml(url ? url.hostname : "")}</strong></p>
-          <a class="secure-link-btn" href="${escapeHtml(url ? url.href : "#")}" target="_blank" rel="noopener noreferrer" style="width: 100%; min-height: 42px; border: 1px solid var(--green); border-radius: var(--radius-sm); color: #fff !important; background: var(--green); display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 760; box-shadow: 0 4px 12px rgba(8, 137, 71, 0.15);">
+          <p class="guidance-portal-domain">${t("Destination:")} <strong>${escapeHtml(url ? url.hostname : "")}</strong></p>
+          <a class="secure-link-btn guidance-portal-link" href="${escapeHtml(url ? url.href : "#")}" target="_blank" rel="noopener noreferrer">
             <span>${t("Open official portal")}</span>
             ${ICONS.external}
           </a>
         </div>
         
         <p class="copy" style="font-size: 0.8rem; color: var(--muted); margin-top: 15px;">
-          ${state.lang === "hi" ?
-            "कोई भी व्यक्तिगत जानकारी जमा करने से पहले हमेशा पुष्टि करें कि URL .gov.in या .nic.in पर समाप्त होता है।" :
-            "Always confirm the URL ends in .gov.in or .nic.in before submitting any personal information."
-          }
+          ${t("Always confirm the URL ends in .gov.in or .nic.in before submitting any personal information.")}
         </p>
       </div>
     `;
   }
 
   return `
-    <div class="modal-backdrop" id="guidance-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; z-index: 1000; padding: 16px;">
-      <div class="modal-card is-guidance" style="background: var(--paper); border: 1px solid var(--line-strong); border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 12px 32px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden;">
-        <header class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--surface);">
-          <h3 class="modal-title" style="margin: 0; font-size: 1.1rem; font-weight: 850; color: var(--ink);">${escapeHtml(t(scheme.shortName || scheme.name))} ${t("Guide")}</h3>
-          <button class="icon-btn" type="button" data-close-guidance aria-label="${t("Close")}" style="background: none; border: none; cursor: pointer; color: var(--muted); display: grid; place-items: center;">${ICONS.back}</button>
+    <div class="guidance-modal-backdrop" id="guidance-modal">
+      <div class="guidance-modal-card">
+        <header class="guidance-modal-header">
+          <h3 class="guidance-modal-title">${escapeHtml(t(scheme.shortName || scheme.name))} ${t("Guide")}</h3>
+          <button class="guidance-close-btn" type="button" data-close-guidance aria-label="${t("Close")}">${ICONS.back}</button>
         </header>
         
         <!-- Step progress indicators -->
-        <div class="guidance-steps-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; background: var(--surface); border-bottom: 1px solid var(--line);">
-          <div class="step-indicator ${step >= 1 ? "active" : ""}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: ${step >= 1 ? "var(--green)" : "var(--muted)"};">
-            <div class="step-num" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${step >= 1 ? "var(--green)" : "var(--line)"}; background: ${step >= 1 ? "var(--green)" : "var(--paper)"}; color: ${step >= 1 ? "#fff" : "var(--muted)"}; display: grid; place-items: center; font-weight: 800;">1</div>
+        <div class="guidance-steps-bar">
+          <div class="guidance-step-indicator ${step >= 1 ? "active" : ""}">
+            <div class="guidance-step-num">1</div>
             <span>${t("Docs")}</span>
           </div>
-          <div class="step-line" style="flex: 1; height: 2px; background: ${step >= 2 ? "var(--green)" : "var(--line)"}; margin: 0 10px; margin-top: -12px;"></div>
-          <div class="step-indicator ${step >= 2 ? "active" : ""}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: ${step >= 2 ? "var(--green)" : "var(--muted)"};">
-            <div class="step-num" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${step >= 2 ? "var(--green)" : "var(--line)"}; background: ${step >= 2 ? "var(--green)" : "var(--paper)"}; color: ${step >= 2 ? "#fff" : "var(--muted)"}; display: grid; place-items: center; font-weight: 800;">2</div>
+          <div class="guidance-step-line ${step >= 2 ? "active" : ""}"></div>
+          <div class="guidance-step-indicator ${step >= 2 ? "active" : ""}">
+            <div class="guidance-step-num">2</div>
             <span>${t("Steps")}</span>
           </div>
-          <div class="step-line" style="flex: 1; height: 2px; background: ${step >= 3 ? "var(--green)" : "var(--line)"}; margin: 0 10px; margin-top: -12px;"></div>
-          <div class="step-indicator ${step >= 3 ? "active" : ""}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; color: ${step >= 3 ? "var(--green)" : "var(--muted)"};">
-            <div class="step-num" style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid ${step >= 3 ? "var(--green)" : "var(--line)"}; background: ${step >= 3 ? "var(--green)" : "var(--paper)"}; color: ${step >= 3 ? "#fff" : "var(--muted)"}; display: grid; place-items: center; font-weight: 800;">3</div>
+          <div class="guidance-step-line ${step >= 3 ? "active" : ""}"></div>
+          <div class="guidance-step-indicator ${step >= 3 ? "active" : ""}">
+            <div class="guidance-step-num">3</div>
             <span>${t("Apply")}</span>
           </div>
         </div>
         
-        <div class="modal-body" style="padding: 24px; flex-grow: 1; overflow-y: auto; max-height: 380px;">
+        <div class="guidance-modal-body">
           ${stepContent}
         </div>
         
-        <footer class="modal-footer" style="padding: 16px 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; background: var(--surface);">
-          <button class="secondary-btn" type="button" data-prev-step ${step === 1 ? "disabled" : ""} style="min-height: 38px; padding: 0 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; background: var(--paper); color: var(--ink);">${t("Back")}</button>
+        <footer class="guidance-modal-footer">
+          <button class="secondary-btn" type="button" data-prev-step ${step === 1 ? "disabled" : ""}>${t("Back")}</button>
           ${step < 3 ? `
-            <button class="primary-btn" type="button" data-next-step style="min-height: 38px; padding: 0 16px; border: 1px solid var(--green); border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; background: var(--green); color: #fff;">${t("Next Step")}</button>
+            <button class="primary-btn" type="button" data-next-step>${t("Next Step")}</button>
           ` : `
-            <button class="primary-btn" type="button" data-close-guidance style="min-height: 38px; padding: 0 16px; border: 1px solid var(--green); border-radius: var(--radius-sm); font-weight: 700; cursor: pointer; background: var(--green); color: #fff;">${t("Finish")}</button>
+            <button class="primary-btn" type="button" data-close-guidance>${t("Finish")}</button>
           `}
         </footer>
       </div>
@@ -2169,9 +2593,46 @@ async function loadSchemesDb() {
   }
 }
 
+window.onerror = function (message, source, lineno, colno, error) {
+  console.error("Uncaught error:", { message, source, lineno, colno, error });
+  if (app) {
+    app.innerHTML = `
+      <div style="padding:40px;text-align:center;font-family:system-ui,sans-serif;">
+        <h2>${t("Something went wrong")}</h2>
+        <p style="color:#8C857B;margin:16px 0;">${t("The app encountered an unexpected error. Please refresh the page to try again.")}</p>
+        <button onclick="location.reload()" style="padding:10px 24px;border:none;border-radius:8px;background:#C85A32;color:#fff;font-weight:700;cursor:pointer;">${t("Refresh Page")}</button>
+      </div>
+    `;
+  }
+  return true;
+};
+
+window.addEventListener("unhandledrejection", function (event) {
+  console.error("Unhandled promise rejection:", event.reason);
+});
+
 applyTheme(state.theme);
 initInteractiveGridPattern();
-initCustomCursor();
-loadSchemesDb().finally(() => {
+loadSchemesDb().finally(async () => {
+  if (API.loadToken()) {
+    try {
+      const data = await API.getSession();
+      state.session = data.session;
+      if (data.profile) {
+        state.profile = data.profile.profile;
+        state.parseResult = data.profile.parseResult;
+        state.matches = data.profile.matches || [];
+        state.details = data.profile.details || state.details;
+      }
+      state.route = state.profile ? "dashboard" : "upload";
+      render();
+      return;
+    } catch {
+      API.setToken(null);
+    }
+  }
+  if (loadSession()) {
+    state.route = state.profile ? "dashboard" : "upload";
+  }
   render();
 });
