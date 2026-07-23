@@ -349,7 +349,10 @@ const state = {
   schemeQuery: "",
   guidanceSchemeId: null,
   guidanceStep: 1,
-  schemesDb: []
+  schemesDb: [],
+  drawerOpen: false,
+  searchOpen: false,
+  rightSidebarOpen: false
 };
 
 const TRANSLATIONS = {
@@ -1048,15 +1051,24 @@ function currentName() {
 function renderShell(content, active = "Dashboard", layout = "compact") {
   const isLanding = state.route === "landing";
   const hasSession = !!state.session;
+
+  if (hasSession && !isLanding && window.innerWidth >= 980 && state.__drawerInit === undefined) {
+    state.drawerOpen = true;
+    state.__drawerInit = true;
+  }
+
   app.innerHTML = `
-    <div class="app-shell ${isLanding ? "landing-shell" : ""} ${hasSession ? "has-sidebar" : ""}">
+    <div class="app-shell ${isLanding ? "landing-shell" : ""} ${hasSession ? "has-sidebar" : ""} ${state.drawerOpen ? "drawer-open" : ""} ${state.searchOpen ? "search-open" : ""} ${state.rightSidebarOpen ? "sidebar-right-open" : ""}">
       <div class="interactive-grid-pattern" aria-hidden="true"></div>
       
-      <!-- Left Sidebar (Desktop sidebar) -->
+      <!-- Drawer Overlay -->
+      <div class="drawer-overlay" data-close-drawer data-close-search data-close-right-sidebar></div>
+      
+      <!-- Left Sidebar Drawer -->
       <aside class="side-rail" aria-label="${t("Kaam Card navigation")}">
         <div class="side-rail__head">
           <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
-          ${renderThemeToggle("rail")}
+          <button type="button" class="icon-btn drawer-close-btn" data-close-drawer aria-label="${t("Close menu")}">${ICONS.back}</button>
         </div>
         
         <nav class="rail-nav">
@@ -1080,6 +1092,50 @@ function renderShell(content, active = "Dashboard", layout = "compact") {
         </div>
       </aside>
       
+      <!-- Search Slide Panel -->
+      ${hasSession && !isLanding ? `
+      <aside class="search-slide-panel" aria-label="${t("Search schemes")}">
+        <div class="search-slide-header">
+          <label for="scheme-search-slide" class="field-label search-label">${t("Search matched schemes")}</label>
+          <button type="button" class="icon-btn" data-close-search aria-label="${t("Close search")}">${ICONS.back}</button>
+        </div>
+        <div class="search-slide-body">
+          <div class="search-input-wrapper">
+            <input type="text" id="scheme-search-slide" placeholder="${t("Type scheme name...")}" value="${escapeHtml(state.schemeQuery || "")}">
+          </div>
+          <div class="search-slide-resources">
+            <h3 class="sidebar-heading">${t("Knowledge Resources")}</h3>
+            <div class="resources-list">
+              ${[
+                { name: "e-Shram Rules & Benefits.pdf", type: "doc", url: "https://eshram.gov.in/" },
+                { name: "PM-SYM Scheme Guidelines.pdf", type: "doc", url: "https://www.labour.gov.in/pm-sym" },
+                { name: "Ayushman Bharat Portal.doc", type: "doc", url: "https://www.pmjay.gov.in/" }
+              ].map((res) => `
+                <a href="${escapeHtml(res.url)}" target="_blank" class="resource-item" rel="noopener noreferrer">
+                  <span class="resource-icon ${res.type}">${ICONS.file}</span>
+                  <span class="resource-name">${escapeHtml(res.name)}</span>
+                </a>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+      </aside>
+      ` : ""}
+      
+      <!-- Mobile Toolbar (visible when session exists) -->
+      ${hasSession && !isLanding ? `
+      <div class="mobile-toolbar">
+        <div class="mobile-toolbar-left">
+          <button type="button" class="icon-btn mobile-menu-btn" data-toggle-drawer aria-label="${t("Open menu")}">${ICONS.menu}</button>
+        </div>
+        <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
+        <div class="mobile-toolbar-right">
+          ${renderThemeToggle("compact")}
+          <button type="button" class="icon-btn" data-toggle-right-sidebar aria-label="${t("Knowledge & Logs")}">${ICONS.list}</button>
+        </div>
+      </div>
+      ` : ""}
+      
       <!-- Main Content -->
       <main class="main-wrap">
         <div class="phone-stage ${layout === "wide" ? "is-wide" : ""}">
@@ -1087,7 +1143,7 @@ function renderShell(content, active = "Dashboard", layout = "compact") {
         </div>
       </main>
       
-      <!-- Right Sidebar -->
+      <!-- Right Sidebar (Desktop only) -->
       ${hasSession && !isLanding ? renderRightSidebar() : ""}
     </div>
   `;
@@ -1096,13 +1152,15 @@ function renderShell(content, active = "Dashboard", layout = "compact") {
   if (hasSession) {
     bindPurgeSession();
     bindRightSidebarEvents();
+    bindDrawerEvents();
+    bindSearchEvents();
   }
   bindGoHome();
   bindPromoClose();
 }
 
 function brandMark() {
-  return `<div class="brand-logo-glass" aria-hidden="true"></div>`;
+  return `<img src="./logo.svg" alt="Kaam Card" class="brand-logo-glass">`;
 }
 
 function navButton(label, icon, active) {
@@ -1185,6 +1243,7 @@ function navigateTo(label) {
   if (label === "Insights" || label === "Income Analytics") state.route = state.profile ? "insights" : "upload";
   if (label === "Schemes" || label === "Welfare Schemes") state.route = state.profile ? "schemes" : "upload";
 
+  closeDrawer();
   render();
 }
 
@@ -1196,7 +1255,7 @@ function bindShellNav() {
 
 function renderLogin() {
   renderShell(`
-    <section class="screen" aria-labelledby="login-title">
+    <section class="screen screen-centered" aria-labelledby="login-title">
       <div class="top-bar">
         <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
         ${renderThemeToggle("compact")}
@@ -1322,7 +1381,7 @@ function renderOtp() {
 function renderUpload() {
   const isConsentChecked = state.consentGiven;
   renderShell(`
-    <section class="screen" aria-labelledby="upload-title">
+    <section class="screen" aria-labelledby="upload-title" style="padding-bottom: 84px">
       <div class="step-header">
         <button class="icon-btn" type="button" data-back aria-label="${t("Back")}">${ICONS.back}</button>
         <h1 id="upload-title">${t("Connect Data")}</h1>
@@ -2215,24 +2274,26 @@ function renderLanding() {
       <!-- Footer -->
       <footer class="landing-footer">
         <div class="footer-grid">
-          <div class="footer-col">
-            <h4>${t("Product")}</h4>
-            <a href="#benefits">${t("Features")}</a>
-            <a href="#how-it-works">${t("How it Works")}</a>
-            <a href="#testimonials">${t("Testimonials")}</a>
+          <div class="footer-grid-links">
+            <div class="footer-col">
+              <h4>${t("Product")}</h4>
+              <a href="#benefits">${t("Features")}</a>
+              <a href="#how-it-works">${t("How it Works")}</a>
+              <a href="#testimonials">${t("Testimonials")}</a>
+            </div>
+            <div class="footer-col">
+              <h4>${t("Support")}</h4>
+              <a href="#contact">${t("Contact")}</a>
+              <a href="mailto:support@kaamcard.nic.in">${t("Email")}</a>
+            </div>
+            <div class="footer-col">
+              <h4>${t("Legal")}</h4>
+              <a href="#">${t("Privacy")}</a>
+              <a href="#">${t("Terms")}</a>
+            </div>
           </div>
-          <div class="footer-col">
-            <h4>${t("Support")}</h4>
-            <a href="#contact">${t("Contact")}</a>
-            <a href="mailto:support@kaamcard.nic.in">${t("Email")}</a>
-          </div>
-          <div class="footer-col">
-            <h4>${t("Legal")}</h4>
-            <a href="#">${t("Privacy")}</a>
-            <a href="#">${t("Terms")}</a>
-          </div>
-          <div class="footer-col" style="grid-column:1/-1;text-align:center;padding-top:16px;border-top:1px solid var(--line);font-size:0.82rem;color:var(--muted)">
-            <div class="brand brand-clickable" data-go-home style="justify-content:center;margin-bottom:8px">${brandMark()}<span>${t("Kaam Card")}</span></div>
+          <div class="footer-grid-brand">
+            <div class="brand brand-clickable" data-go-home>${brandMark()}<span>${t("Kaam Card")}</span></div>
             <p>${t("© 2026 Kaam Card.")} ${t("Empowering Indian gig workers with portable data identity.")}</p>
           </div>
         </div>
@@ -2299,6 +2360,9 @@ function purgeSession() {
   state.consentGiven = false;
   state.auditLogs = [];
   state.schemeQuery = "";
+  state.drawerOpen = false;
+  state.rightSidebarOpen = false;
+  delete state.__drawerInit;
   clearSessionStorage();
   render();
 }
@@ -2316,6 +2380,7 @@ function bindPurgeSession() {
 function bindGoHome() {
   document.querySelectorAll("[data-go-home]").forEach((element) => {
     element.addEventListener("click", () => {
+      closeDrawer();
       if (state.session) {
         state.route = state.profile ? "dashboard" : "upload";
       } else {
@@ -2351,6 +2416,10 @@ function renderRightSidebar() {
 
   return `
     <aside class="right-sidebar" aria-label="${t("Welfare Knowledge & Security Logs")}">
+      <div class="search-slide-header">
+        <label for="scheme-search" class="field-label search-label">${t("Welfare Knowledge & Security Logs")}</label>
+        <button type="button" class="icon-btn" data-close-right-sidebar aria-label="${t("Close")}">${ICONS.back}</button>
+      </div>
       <div class="right-sidebar__section">
         <label for="scheme-search" class="field-label search-label">${t("Search matched schemes")}</label>
         <div class="search-input-wrapper">
@@ -2385,6 +2454,86 @@ function bindRightSidebarEvents() {
         state.schemeQuery = event.target.value;
         render();
         const newInput = document.querySelector("#scheme-search");
+        if (newInput) {
+          newInput.focus();
+          newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+        }
+      }, 200);
+    });
+  }
+}
+
+function closeDrawer() {
+  state.drawerOpen = false;
+  const shell = document.querySelector(".app-shell");
+  if (shell) shell.classList.remove("drawer-open");
+}
+
+function closeSearch() {
+  state.searchOpen = false;
+  const shell = document.querySelector(".app-shell");
+  if (shell) shell.classList.remove("search-open");
+}
+
+function closeRightSidebar() {
+  state.rightSidebarOpen = false;
+  const shell = document.querySelector(".app-shell");
+  if (shell) shell.classList.remove("sidebar-right-open");
+}
+
+function bindDrawerEvents() {
+  document.querySelectorAll("[data-toggle-drawer]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.drawerOpen = !state.drawerOpen;
+      const shell = document.querySelector(".app-shell");
+      if (shell) shell.classList.toggle("drawer-open", state.drawerOpen);
+    });
+  });
+  document.querySelectorAll("[data-close-drawer]").forEach((btn) => {
+    btn.addEventListener("click", closeDrawer);
+  });
+  document.querySelectorAll("[data-toggle-right-sidebar]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.rightSidebarOpen = !state.rightSidebarOpen;
+      const shell = document.querySelector(".app-shell");
+      if (shell) shell.classList.toggle("sidebar-right-open", state.rightSidebarOpen);
+    });
+  });
+  document.querySelectorAll("[data-close-right-sidebar]").forEach((btn) => {
+    btn.addEventListener("click", closeRightSidebar);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (state.drawerOpen) closeDrawer();
+      if (state.searchOpen) closeSearch();
+      if (state.rightSidebarOpen) closeRightSidebar();
+    }
+  });
+}
+
+function bindSearchEvents() {
+  document.querySelectorAll("[data-toggle-search]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.searchOpen = !state.searchOpen;
+      const shell = document.querySelector(".app-shell");
+      if (shell) shell.classList.toggle("search-open", state.searchOpen);
+      if (state.searchOpen) {
+        setTimeout(() => document.querySelector("#scheme-search-slide")?.focus(), 100);
+      }
+    });
+  });
+  document.querySelectorAll("[data-close-search]").forEach((btn) => {
+    btn.addEventListener("click", closeSearch);
+  });
+  const searchInput = document.querySelector("#scheme-search-slide");
+  if (searchInput) {
+    let searchTimer;
+    searchInput.addEventListener("input", (event) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        state.schemeQuery = event.target.value;
+        render();
+        const newInput = document.querySelector("#scheme-search-slide");
         if (newInput) {
           newInput.focus();
           newInput.setSelectionRange(newInput.value.length, newInput.value.length);
