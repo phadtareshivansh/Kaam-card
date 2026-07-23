@@ -99,6 +99,7 @@ a {
   -webkit-backdrop-filter: blur(12px);
   border-right: 1px solid var(--line);
   gap: 36px;
+  overflow-y: auto;
   transform: translateX(-100%);
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1794,9 +1795,16 @@ cite span {
   -webkit-backdrop-filter: blur(12px);
   border-left: 1px solid var(--line);
   padding: 32px 24px;
-  overflow-y: auto;
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.right-sidebar__body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .sidebar-right-open .right-sidebar {
