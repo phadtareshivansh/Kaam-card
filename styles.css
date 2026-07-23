@@ -3476,3 +3476,44 @@ cite span {
 .skip-link:focus {
   top: 0;
 }
+
+.speak-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.speak-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.speak-btn:active {
+  transform: scale(0.93);
+}
+.google-card-header .speak-btn {
+  margin-left: auto;
+}
+.scheme-card h3 .speak-btn {
+  vertical-align: middle;
+  margin-left: 6px;
+  width: 26px;
+  height: 26px;
+}
+.google-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.google-card-header svg:first-child {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
