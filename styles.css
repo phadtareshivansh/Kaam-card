@@ -3507,6 +3507,191 @@ cite span {
   width: 26px;
   height: 26px;
 }
+/* Onboarding Tour */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.onboarding-card {
+  background: var(--paper);
+  border-radius: 16px;
+  padding: 28px 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.onboarding-step-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--ink);
+}
+.onboarding-step-text {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+.onboarding-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s;
+}
+.onboarding-dot.active {
+  background: var(--accent);
+}
+.onboarding-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Budget inputs */
+.budget-input {
+  width: 80px;
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Uploaded files list */
+.uploaded-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uploaded-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+}
+.uploaded-file-name {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.uploaded-file-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: block;
+}
+
+/* Manual entry section */
+.collapse-toggle {
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+}
+.manual-section {
+  margin-top: 12px;
+}
+.manual-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+.manual-form .secondary-btn {
+  grid-column: 1 / -1;
+}
+.manual-entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.manual-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+.manual-entry-date {
+  color: var(--muted);
+  min-width: 90px;
+}
+.manual-entry-amount {
+  font-weight: 600;
+  min-width: 80px;
+}
+.manual-entry-source {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* Doc checklist */
+.doc-checklist-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.doc-check-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.doc-check-item:hover {
+  background: var(--surface);
+}
+.doc-check-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Loan card */
+.loan-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.loan-item:last-child {
+  border-bottom: none;
+}
+
+/* Icon button small */
+.icon-btn--small {
+  width: 28px;
+  height: 28px;
+}
+
 .google-card-header {
   display: flex;
   align-items: center;

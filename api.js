@@ -30,7 +30,7 @@ function apiRemove(key) {
 const API = {
   sendOtp(phone) {
     return new Promise((resolve) => {
-      const code = "0000";
+      const code = "000000";
       const expiresAt = Date.now() + 5 * 60 * 1000;
       apiSet(API_SESSION_KEY, { phone, code, expiresAt });
       setTimeout(() => {

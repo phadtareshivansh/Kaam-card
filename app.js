@@ -9,6 +9,8 @@ const MIN_SAVINGS_AMOUNT = 20;
 const SAVINGS_ROUNDING = 10;
 const FALLBACK_SURPLUS_RATIO = 0.2;
 const DAYS_IN_MONTH = 30;
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const IDLE_WARN_MS = 25 * 60 * 1000;
 
 const ICONS = {
   wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5v-9Z"/><path d="M16 12h4"/><path d="M6 9h9"/></svg>',
@@ -28,7 +30,8 @@ const ICONS = {
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
   menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>',
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
-  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.2 8.2 0 0 1 9.5 3.6 8.5 8.5 0 1 0 20.4 14.5Z"/></svg>'
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.2 8.2 0 0 1 9.5 3.6 8.5 8.5 0 1 0 20.4 14.5Z"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>'
 };
 
 const OCCUPATION_ALIASES = {
@@ -103,7 +106,13 @@ function saveSession() {
       parseResult: state.parseResult,
       matches: state.matches,
       details: state.details,
-      consentGiven: state.consentGiven
+      consentGiven: state.consentGiven,
+      incomeEntries: state.incomeEntries,
+      uploadedFiles: state.uploadedFiles,
+      mergedTransactions: state.mergedTransactions,
+      budgets: state.budgets,
+      documents: state.documents,
+      onboardingDone: state.onboardingDone
     };
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
@@ -123,10 +132,61 @@ function loadSession() {
     if (data.matches) state.matches = data.matches;
     if (data.details) state.details = data.details;
     if (data.consentGiven) state.consentGiven = data.consentGiven;
+    if (data.incomeEntries) state.incomeEntries = data.incomeEntries;
+    if (data.uploadedFiles) state.uploadedFiles = data.uploadedFiles;
+    if (data.mergedTransactions) state.mergedTransactions = data.mergedTransactions;
+    if (data.budgets) state.budgets = data.budgets;
+    if (data.documents) state.documents = data.documents;
+    if (data.onboardingDone) state.onboardingDone = data.onboardingDone;
     return Boolean(data.session);
   } catch (error) {
     return false;
   }
+}
+
+function touchActivity() {
+  state.lastActivity = Date.now();
+}
+
+function checkSessionTimeout() {
+  if (!state.session) return;
+  const elapsed = Date.now() - state.lastActivity;
+  if (elapsed > SESSION_TIMEOUT_MS) {
+    addAuditLog("Session timed out due to inactivity.");
+    clearSessionData();
+    state.session = null;
+    state.route = "landing";
+    saveSession();
+    render();
+    return true;
+  }
+  return false;
+}
+
+document.addEventListener("click", touchActivity);
+document.addEventListener("keydown", touchActivity);
+document.addEventListener("scroll", touchActivity, { passive: true });
+
+setInterval(checkSessionTimeout, 30000);
+
+function clearSessionData() {
+  state.session = null;
+  state.phoneDraft = "";
+  state.otpDebugCode = null;
+  state.details = { age: 29, occupation: "Delivery worker", state: "Delhi" };
+  state.parseResult = null;
+  state.profile = null;
+  state.expenseProfile = null;
+  state.matches = [];
+  state.auditLogs = [];
+  state.incomeEntries = [];
+  state.uploadedFiles = [];
+  state.mergedTransactions = null;
+  state.budgets = {};
+  state.documents = {};
+  state.consentGiven = false;
+  clearSessionStorage();
+  try { API.purgeSession(); } catch (e) {}
 }
 
 function clearSessionStorage() {
@@ -355,7 +415,14 @@ const state = {
   schemesDb: [],
   drawerOpen: false,
   searchOpen: false,
-  rightSidebarOpen: false
+  rightSidebarOpen: false,
+  incomeEntries: [],
+  uploadedFiles: [],
+  mergedTransactions: null,
+  budgets: {},
+  documents: {},
+  onboardingDone: false,
+  lastActivity: Date.now()
 };
 
 const TRANSLATIONS = {
@@ -535,6 +602,27 @@ const TRANSLATIONS = {
   "PM SVANidhi Scheme": "पीएम स्वनिधि योजना",
   "Special micro-credit facility for street vendors to access affordable working capital loans for business revival.": "व्यवसाय पुनरुद्धार के लिए किफायती कार्यशील पूंजी ऋण तक पहुंच बनाने के लिए स्ट्रीट वेंडरों के लिए विशेष सूक्ष्म-ऋण सुविधा।",
 
+  // Fallback scheme names
+  "PM Shram Yogi Maandhan": "पीएम श्रम योगी मानधन",
+  "e-Shram": "ई-श्रम",
+  "PM Jeevan Jyoti Bima Yojana": "पीएम जीवन ज्योति बीमा योजना",
+  "PM Suraksha Bima Yojana": "पीएम सुरक्षा बीमा योजना",
+  "Delhi Construction Workers Welfare Board": "दिल्ली निर्माण श्रमिक कल्याण बोर्ड",
+  "Pension support after age 60": "60 वर्ष की आयु के बाद पेंशन सहायता",
+  "National registration for unorganised workers": "असंगठित श्रमिकों के लिए राष्ट्रीय पंजीकरण",
+  "Health cover for low-income families": "कम आय वाले परिवारों के लिए स्वास्थ्य कवर",
+  "Life insurance cover": "जीवन बीमा कवर",
+  "Accident insurance cover": "दुर्घटना बीमा कवर",
+  "Welfare benefits for registered construction workers": "पंजीकृत निर्माण श्रमिकों के लिए कल्याण लाभ",
+
+  // Loan product names
+  "PM SVANidhi": "पीएम स्वनिधि",
+  "MUDRA Loan (Shishu)": "मुद्रा ऋण (शिशु)",
+  "Micro Enterprise Loan": "सूक्ष्म उद्यम ऋण",
+  "Working capital loan up to ₹10,000 for street vendors, repayable in monthly installments.": "स्ट्रीट वेंडरों के लिए ₹10,000 तक का कार्यशील पूंजी ऋण, मासिक किश्तों में देय।",
+  "Loans up to ₹50,000 for income-generating activities in non-corporate small business sector.": "गैर-कॉर्पोरेट लघु व्यवसाय क्षेत्र में आय-सृजन गतिविधियों के लिए ₹50,000 तक का ऋण।",
+  "Small business loan for informal workers to expand livelihood activities.": "असंगठित श्रमिकों के लिए आजीविका गतिविधियों के विस्तार हेतु लघु व्यवसाय ऋण।",
+
   // Landing testimonials
   "Delivery Partner, Delhi": "डिलीवरी पार्टनर, दिल्ली",
   "Cab Driver, Mumbai": "कैब ड्राइवर, मुंबई",
@@ -694,7 +782,72 @@ const TRANSLATIONS = {
   "Generated by Kaam Card | Eligibility is simplified, verify on official portals": "काम कार्ड द्वारा तैयार | पात्रता सरलीकृत है, आधिकारिक पोर्टलों पर सत्यापित करें",
   "Kaam Card - ": "काम कार्ड - ",
   "worker": "कार्यकर्ता",
-  "friend": "मित्र"
+  "friend": "मित्र",
+  "Uploaded files": "अपलोड की गई फ़ाइलें",
+  "Upload a CSV or bank statement PDF. Links inside files are treated as plain text.": "CSV या बैंक स्टेटमेंट PDF अपलोड करें। फ़ाइलों के अंदर के लिंक सादे टेक्स्ट माने जाते हैं।",
+  "Tap to upload CSV or PDF": "CSV या PDF अपलोड करने के लिए टैप करें",
+  "or drag and drop. CSV or PDF, up to 5 MB.": "या ड्रैग और ड्रॉप करें। CSV या PDF, अधिकतम 5 MB।",
+  "Manual income entry": "मैन्युअल आय प्रविष्टि",
+  "Date": "तारीख",
+  "Amount": "राशि",
+  "Source": "स्रोत",
+  "Platform credit": "प्लेटफ़ॉर्म क्रेडिट",
+  "Bank transfer": "बैंक ट्रांसफर",
+  "Add entry": "प्रविष्टि जोड़ें",
+  "Remove entry": "प्रविष्टि हटाएं",
+  "Cash": "नकद",
+  "rows": "पंक्तियाँ",
+  "Budget": "बजट",
+  "documents ready": "दस्तावेज़ तैयार",
+  "Loan Eligibility": "ऋण पात्रता",
+  "loan options available": "ऋण विकल्प उपलब्ध",
+  "No loans match your profile": "आपकी प्रोफ़ाइल से कोई ऋण मेल नहीं खाता",
+  "Try adjusting your details or uploading more income data to improve eligibility.": "पात्रता सुधारने के लिए अपनी जानकारी या अधिक आय डेटा अपलोड करने का प्रयास करें।",
+  "Up to": "अधिकतम",
+  "Tax Estimation": "कर अनुमान",
+  "Estimated annual tax liability": "अनुमानित वार्षिक कर देयता",
+  "Annual income": "वार्षिक आय",
+  "Estimated tax": "अनुमानित कर",
+  "Net income after tax": "कर के बाद शुद्ध आय",
+  "Effective tax rate": "प्रभावी कर दर",
+  "This is a simplified estimate. Consult a CA for accurate tax planning.": "यह एक सरल अनुमान है। सटीक योजना के लिए CA से सलाह लें।",
+  "Claim": "दावा",
+  "Claim Documents": "दावा दस्तावेज़",
+  "Step 3: Claim Documents": "चरण 3: दावा दस्तावेज़",
+  "Step 4: File a Claim": "चरण 4: दावा दायर करें",
+  "Prepare these documents if you need to file a claim:": "दावा दायर करने के लिए ये दस्तावेज़ तैयार रखें:",
+  "Follow these steps to file a claim on the official portal:": "आधिकारिक पोर्टल पर दावा दायर करने के लिए इन चरणों का पालन करें:",
+  "Policy document / enrollment number": "पॉलिसी दस्तावेज़ / नामांकन संख्या",
+  "Claim form (download from portal)": "दावा फॉर्म (पोर्टल से डाउनलोड करें)",
+  "Supporting documents (hospital bills / death certificate)": "सहायक दस्तावेज़ (अस्पताल बिल / मृत्यु प्रमाण पत्र)",
+  "Download the claim form from the official portal.": "आधिकारिक पोर्टल से दावा फॉर्म डाउनलोड करें।",
+  "Fill in the policyholder details and policy number.": "पॉलिसीधारक विवरण और पॉलिसी नंबर भरें।",
+  "Attach all required supporting documents.": "सभी आवश्यक सहायक दस्तावेज़ संलग्न करें।",
+  "Submit the form at the nearest branch or online portal.": "निकटतम शाखा या ऑनलाइन पोर्टल पर फॉर्म जमा करें।",
+  "Track claim status using the acknowledgment number.": "पावती संख्या का उपयोग करके दावा स्थिति ट्रैक करें।",
+  "Skip": "छोड़ें",
+  "Next": "अगला",
+  "Welcome to Kaam Card": "काम कार्ड में आपका स्वागत है",
+  "This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.": "यह आपका डैशबोर्ड है। यहां आप अपनी आय विश्लेषण, बचत सुझाव और कल्याण योजना मिलान देखेंगे।",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "आपका दैनिक कमाई चार्ट अच्छे और बुरे दिन दिखाता है, जिससे आप अपनी आय पैटर्न समझ सकते हैं।",
+  "Use the smart savings suggestion and check which government schemes you qualify for.": "स्मार्ट बचत सुझाव का उपयोग करें और जांचें कि आप किन सरकारी योजनाओं के लिए पात्र हैं।",
+  "Tap Upload to add more statements or manual entries anytime.": "कभी भी अधिक स्टेटमेंट या मैन्युअल प्रविष्टियां जोड़ने के लिए अपलोड पर टैप करें।",
+  "Remove": "हटाएं",
+  "Please upload a CSV or PDF file.": "कृपया CSV या PDF फ़ाइल अपलोड करें।",
+  "Bank PDF": "बैंक PDF",
+  "Ration card": "राशन कार्ड",
+  "Voter ID": "वोटर आईडी",
+  "Driving license": "ड्राइविंग लाइसेंस",
+  "Income certificate": "आय प्रमाण पत्र",
+  "Minimum age": "न्यूनतम आयु",
+  "Maximum age": "अधिकतम आयु",
+  "Minimum monthly income": "न्यूनतम मासिक आय",
+  "Income must be below": "आय इससे कम होनी चाहिए",
+  "Occupation must be": "पेशा होना चाहिए",
+  "State must be": "राज्य होना चाहिए",
+  "Monthly income": "मासिक आय",
+  "Income stability": "आय स्थिरता",
+  "Eligible": "पात्र"
 };
 
 const TRANSLATIONS_TA = {
@@ -1012,7 +1165,72 @@ const TRANSLATIONS_TA = {
   "Generated by Kaam Card | Eligibility is simplified, verify on official portals": "Generated by Kaam Card | Eligibility is simplified, verify on official portals",
   "Kaam Card - ": "Kaam Card - ",
   "worker": "worker",
-  "friend": "friend"
+  "friend": "friend",
+  "Uploaded files": "Uploaded files",
+  "Upload a CSV or bank statement PDF. Links inside files are treated as plain text.": "Upload a CSV or bank statement PDF. Links inside files are treated as plain text.",
+  "Tap to upload CSV or PDF": "Tap to upload CSV or PDF",
+  "or drag and drop. CSV or PDF, up to 5 MB.": "or drag and drop. CSV or PDF, up to 5 MB.",
+  "Manual income entry": "Manual income entry",
+  "Date": "Date",
+  "Amount": "Amount",
+  "Source": "Source",
+  "Platform credit": "Platform credit",
+  "Bank transfer": "Bank transfer",
+  "Add entry": "Add entry",
+  "Remove entry": "Remove entry",
+  "Cash": "Cash",
+  "rows": "rows",
+  "Budget": "Budget",
+  "documents ready": "documents ready",
+  "Loan Eligibility": "Loan Eligibility",
+  "loan options available": "loan options available",
+  "No loans match your profile": "No loans match your profile",
+  "Try adjusting your details or uploading more income data to improve eligibility.": "Try adjusting your details or uploading more income data to improve eligibility.",
+  "Up to": "Up to",
+  "Tax Estimation": "Tax Estimation",
+  "Estimated annual tax liability": "Estimated annual tax liability",
+  "Annual income": "Annual income",
+  "Estimated tax": "Estimated tax",
+  "Net income after tax": "Net income after tax",
+  "Effective tax rate": "Effective tax rate",
+  "This is a simplified estimate. Consult a CA for accurate tax planning.": "This is a simplified estimate. Consult a CA for accurate tax planning.",
+  "Claim": "Claim",
+  "Claim Documents": "Claim Documents",
+  "Step 3: Claim Documents": "Step 3: Claim Documents",
+  "Step 4: File a Claim": "Step 4: File a Claim",
+  "Prepare these documents if you need to file a claim:": "Prepare these documents if you need to file a claim:",
+  "Follow these steps to file a claim on the official portal:": "Follow these steps to file a claim on the official portal:",
+  "Policy document / enrollment number": "Policy document / enrollment number",
+  "Claim form (download from portal)": "Claim form (download from portal)",
+  "Supporting documents (hospital bills / death certificate)": "Supporting documents (hospital bills / death certificate)",
+  "Download the claim form from the official portal.": "Download the claim form from the official portal.",
+  "Fill in the policyholder details and policy number.": "Fill in the policyholder details and policy number.",
+  "Attach all required supporting documents.": "Attach all required supporting documents.",
+  "Submit the form at the nearest branch or online portal.": "Submit the form at the nearest branch or online portal.",
+  "Track claim status using the acknowledgment number.": "Track claim status using the acknowledgment number.",
+  "Skip": "Skip",
+  "Next": "Next",
+  "Welcome to Kaam Card": "Welcome to Kaam Card",
+  "This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.": "This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.",
+  "Use the smart savings suggestion and check which government schemes you qualify for.": "Use the smart savings suggestion and check which government schemes you qualify for.",
+  "Tap Upload to add more statements or manual entries anytime.": "Tap Upload to add more statements or manual entries anytime.",
+  "Remove": "Remove",
+  "Please upload a CSV or PDF file.": "Please upload a CSV or PDF file.",
+  "Bank PDF": "Bank PDF",
+  "Ration card": "Ration card",
+  "Voter ID": "Voter ID",
+  "Driving license": "Driving license",
+  "Income certificate": "Income certificate",
+  "Minimum age": "Minimum age",
+  "Maximum age": "Maximum age",
+  "Minimum monthly income": "Minimum monthly income",
+  "Income must be below": "Income must be below",
+  "Occupation must be": "Occupation must be",
+  "State must be": "State must be",
+  "Monthly income": "Monthly income",
+  "Income stability": "Income stability",
+  "Eligible": "Eligible"
 }
 
 
@@ -1332,7 +1550,72 @@ const TRANSLATIONS_TE = {
   "Generated by Kaam Card | Eligibility is simplified, verify on official portals": "Generated by Kaam Card | Eligibility is simplified, verify on official portals",
   "Kaam Card - ": "Kaam Card - ",
   "worker": "worker",
-  "friend": "friend"
+  "friend": "friend",
+  "Uploaded files": "Uploaded files",
+  "Upload a CSV or bank statement PDF. Links inside files are treated as plain text.": "Upload a CSV or bank statement PDF. Links inside files are treated as plain text.",
+  "Tap to upload CSV or PDF": "Tap to upload CSV or PDF",
+  "or drag and drop. CSV or PDF, up to 5 MB.": "or drag and drop. CSV or PDF, up to 5 MB.",
+  "Manual income entry": "Manual income entry",
+  "Date": "Date",
+  "Amount": "Amount",
+  "Source": "Source",
+  "Platform credit": "Platform credit",
+  "Bank transfer": "Bank transfer",
+  "Add entry": "Add entry",
+  "Remove entry": "Remove entry",
+  "Cash": "Cash",
+  "rows": "rows",
+  "Budget": "Budget",
+  "documents ready": "documents ready",
+  "Loan Eligibility": "Loan Eligibility",
+  "loan options available": "loan options available",
+  "No loans match your profile": "No loans match your profile",
+  "Try adjusting your details or uploading more income data to improve eligibility.": "Try adjusting your details or uploading more income data to improve eligibility.",
+  "Up to": "Up to",
+  "Tax Estimation": "Tax Estimation",
+  "Estimated annual tax liability": "Estimated annual tax liability",
+  "Annual income": "Annual income",
+  "Estimated tax": "Estimated tax",
+  "Net income after tax": "Net income after tax",
+  "Effective tax rate": "Effective tax rate",
+  "This is a simplified estimate. Consult a CA for accurate tax planning.": "This is a simplified estimate. Consult a CA for accurate tax planning.",
+  "Claim": "Claim",
+  "Claim Documents": "Claim Documents",
+  "Step 3: Claim Documents": "Step 3: Claim Documents",
+  "Step 4: File a Claim": "Step 4: File a Claim",
+  "Prepare these documents if you need to file a claim:": "Prepare these documents if you need to file a claim:",
+  "Follow these steps to file a claim on the official portal:": "Follow these steps to file a claim on the official portal:",
+  "Policy document / enrollment number": "Policy document / enrollment number",
+  "Claim form (download from portal)": "Claim form (download from portal)",
+  "Supporting documents (hospital bills / death certificate)": "Supporting documents (hospital bills / death certificate)",
+  "Download the claim form from the official portal.": "Download the claim form from the official portal.",
+  "Fill in the policyholder details and policy number.": "Fill in the policyholder details and policy number.",
+  "Attach all required supporting documents.": "Attach all required supporting documents.",
+  "Submit the form at the nearest branch or online portal.": "Submit the form at the nearest branch or online portal.",
+  "Track claim status using the acknowledgment number.": "Track claim status using the acknowledgment number.",
+  "Skip": "Skip",
+  "Next": "Next",
+  "Welcome to Kaam Card": "Welcome to Kaam Card",
+  "This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.": "This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.",
+  "Use the smart savings suggestion and check which government schemes you qualify for.": "Use the smart savings suggestion and check which government schemes you qualify for.",
+  "Tap Upload to add more statements or manual entries anytime.": "Tap Upload to add more statements or manual entries anytime.",
+  "Remove": "Remove",
+  "Please upload a CSV or PDF file.": "Please upload a CSV or PDF file.",
+  "Bank PDF": "Bank PDF",
+  "Ration card": "Ration card",
+  "Voter ID": "Voter ID",
+  "Driving license": "Driving license",
+  "Income certificate": "Income certificate",
+  "Minimum age": "Minimum age",
+  "Maximum age": "Maximum age",
+  "Minimum monthly income": "Minimum monthly income",
+  "Income must be below": "Income must be below",
+  "Occupation must be": "Occupation must be",
+  "State must be": "State must be",
+  "Monthly income": "Monthly income",
+  "Income stability": "Income stability",
+  "Eligible": "Eligible"
 }
 
 const TRANSLATIONS_MR = {
@@ -1491,6 +1774,28 @@ const TRANSLATIONS_MR = {
   "Free health insurance coverage up to Rs. 5 Lakhs per family per year for secondary and tertiary care hospitalization.": "दुय्यम आणि तृतीयक काळजी हॉस्पिटलायझेशनसाठी प्रति वर्ष प्रति कुटुंब रु. ५ लाख पर्यंत मोफत आरोग्य विमा कव्हरेज.",
   "PM SVANidhi Scheme": "PM स्वनिधी योजना",
   "Special micro-credit facility for street vendors to access affordable working capital loans for business revival.": "व्यवसाय पुनरुज्जीवनासाठी परवडणारे कार्यरत भांडवल कर्ज मिळवण्यासाठी स्ट्रीट वेंडर्ससाठी विशेष सूक्ष्म-कर्ज सुविधा.",
+
+  // Fallback scheme names
+  "PM Shram Yogi Maandhan": "पीएम श्रम योगी मानधन",
+  "e-Shram": "ई-श्रम",
+  "PM Jeevan Jyoti Bima Yojana": "पीएम जीवन ज्योती विमा योजना",
+  "PM Suraksha Bima Yojana": "पीएम सुरक्षा विमा योजना",
+  "Delhi Construction Workers Welfare Board": "दिल्ली बांधकाम कामगार कल्याण मंडळ",
+  "Pension support after age 60": "६० वर्षांनंतर पेन्शन सहाय्य",
+  "National registration for unorganised workers": "असंघटित कामगारांसाठी राष्ट्रीय नोंदणी",
+  "Health cover for low-income families": "कमी उत्पन्न कुटुंबांसाठी आरोग्य कव्हर",
+  "Life insurance cover": "जीवन विमा कव्हर",
+  "Accident insurance cover": "अपघात विमा कव्हर",
+  "Welfare benefits for registered construction workers": "नोंदणीकृत बांधकाम कामगारांसाठी कल्याण लाभ",
+
+  // Loan product names
+  "PM SVANidhi": "पीएम स्वनिधी",
+  "MUDRA Loan (Shishu)": "मुद्रा कर्ज (शिशु)",
+  "Micro Enterprise Loan": "सूक्ष्म उद्यम कर्ज",
+  "Working capital loan up to ₹10,000 for street vendors, repayable in monthly installments.": "स्ट्रीट वेंडर्ससाठी ₹१०,००० पर्यंत कार्यरत भांडवल कर्ज, मासिक हप्त्यांमध्ये देय.",
+  "Loans up to ₹50,000 for income-generating activities in non-corporate small business sector.": "गैर-कॉर्पोरेट लघु व्यवसाय क्षेत्रात उत्पन्न-निर्मिती क्रियाकलापांसाठी ₹५०,००० पर्यंत कर्ज.",
+  "Small business loan for informal workers to expand livelihood activities.": "असंघटित कामगारांसाठी उपजीविका क्रियाकलाप वाढविण्यासाठी लघु व्यवसाय कर्ज.",
+
   "Delivery Partner, Delhi": "डिलिव्हरी पार्टनर, दिल्ली",
   "Cab Driver, Mumbai": "कॅब ड्रायव्हर, मुंबई",
   "Domestic Worker, Bangalore": "घरगुती कामगार, बंगळुरू",
@@ -1644,7 +1949,72 @@ const TRANSLATIONS_MR = {
   "Log Out": "लॉग आउट",
   "Kaam Card - ": "काम कार्ड - ",
   "worker": "कामगार",
-  "friend": "मित्र"
+  "friend": "मित्र",
+  "Uploaded files": "अपलोड केलेल्या फायली",
+  "Upload a CSV or bank statement PDF. Links inside files are treated as plain text.": "CSV किंवा बँक स्टेटमेंट PDF अपलोड करा. फायलीतील लिंक्स सामान्य मजकूर मानल्या जातात.",
+  "Tap to upload CSV or PDF": "CSV किंवा PDF अपलोड करण्यासाठी टॅप करा",
+  "or drag and drop. CSV or PDF, up to 5 MB.": "किंवा ड्रॅग आणि ड्रॉप करा. CSV किंवा PDF, 5 MB पर्यंत.",
+  "Manual income entry": "मॅन्युअल उत्पन्न नोंद",
+  "Date": "तारीख",
+  "Amount": "रक्कम",
+  "Source": "स्रोत",
+  "Platform credit": "प्लॅटफॉर्म क्रेडिट",
+  "Bank transfer": "बँक ट्रान्सफर",
+  "Add entry": "नोंद जोडा",
+  "Remove entry": "नोंद काढा",
+  "Cash": "रोख",
+  "rows": "रांगा",
+  "Budget": "बजेट",
+  "documents ready": "कागदपत्रे तयार",
+  "Loan Eligibility": "कर्ज पात्रता",
+  "loan options available": "कर्ज पर्याय उपलब्ध",
+  "No loans match your profile": "तुमच्या प्रोफाइलशी कोणतेही कर्ज जुळत नाही",
+  "Try adjusting your details or uploading more income data to improve eligibility.": "पात्रता सुधारण्यासाठी तुमचे तपशील किंवा अधिक उत्पन्न डेटा अपलोड करण्याचा प्रयत्न करा.",
+  "Up to": "पर्यंत",
+  "Tax Estimation": "कर अंदाज",
+  "Estimated annual tax liability": "अंदाजे वार्षिक कर देयता",
+  "Annual income": "वार्षिक उत्पन्न",
+  "Estimated tax": "अंदाजे कर",
+  "Net income after tax": "करानंतर निव्वळ उत्पन्न",
+  "Effective tax rate": "प्रभावी कर दर",
+  "This is a simplified estimate. Consult a CA for accurate tax planning.": "हा एक सरलीकृत अंदाज आहे. अचूक नियोजनासाठी CA चा सल्ला घ्या.",
+  "Claim": "दावा",
+  "Claim Documents": "दावा कागदपत्रे",
+  "Step 3: Claim Documents": "पायरी ३: दावा कागदपत्रे",
+  "Step 4: File a Claim": "पायरी ४: दावा दाखल करा",
+  "Prepare these documents if you need to file a claim:": "दावा दाखल करण्यासाठी ही कागदपत्रे तयार ठेवा:",
+  "Follow these steps to file a claim on the official portal:": "अधिकृत पोर्टलवर दावा दाखल करण्यासाठी या पायऱ्या फॉलो करा:",
+  "Policy document / enrollment number": "पॉलिसी दस्तऐवज / नोंदणी क्रमांक",
+  "Claim form (download from portal)": "दावा फॉर्म (पोर्टलवरून डाउनलोड करा)",
+  "Supporting documents (hospital bills / death certificate)": "सहाय्यक कागदपत्रे (हॉस्पिटल बिल / मृत्यू प्रमाणपत्र)",
+  "Download the claim form from the official portal.": "अधिकृत पोर्टलवरून दावा फॉर्म डाउनलोड करा.",
+  "Fill in the policyholder details and policy number.": "पॉलिसीधारक तपशील आणि पॉलिसी क्रमांक भरा.",
+  "Attach all required supporting documents.": "सर्व आवश्यक सहाय्यक कागदपत्रे संलग्न करा.",
+  "Submit the form at the nearest branch or online portal.": "जवळच्या शाखेत किंवा ऑनलाइन पोर्टलवर फॉर्म सबमिट करा.",
+  "Track claim status using the acknowledgment number.": "पावती क्रमांक वापरून दावा स्थिती ट्रॅक करा.",
+  "Skip": "वगळा",
+  "Next": "पुढे",
+  "Welcome to Kaam Card": "काम कार्डमध्ये आपले स्वागत आहे",
+  "This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.": "हा तुमचा डॅशबोर्ड आहे. येथे तुम्हाला उत्पन्न विश्लेषण, बचत शिफारसी आणि कल्याण योजना जुळणी दिसतील.",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "तुमचा दैनिक कमाई चार्ट चांगले आणि वाईट दिवस दाखवतो, ज्यामुळे तुम्हाला तुमचे उत्पन्न नमुने समजतात.",
+  "Use the smart savings suggestion and check which government schemes you qualify for.": "स्मार्ट बचत सूचना वापरा आणि तुम्ही कोणत्या सरकारी योजनांसाठी पात्र आहात ते तपासा.",
+  "Tap Upload to add more statements or manual entries anytime.": "कधीही अधिक स्टेटमेंट किंवा मॅन्युअल नोंदी जोडण्यासाठी अपलोडवर टॅप करा.",
+  "Remove": "काढा",
+  "Please upload a CSV or PDF file.": "कृपया CSV किंवा PDF फाइल अपलोड करा.",
+  "Bank PDF": "बँक PDF",
+  "Ration card": "रेशन कार्ड",
+  "Voter ID": "मतदार ओळखपत्र",
+  "Driving license": "ड्रायव्हिंग लायसन्स",
+  "Income certificate": "उत्पन्न प्रमाणपत्र",
+  "Minimum age": "किमान वय",
+  "Maximum age": "कमाल वय",
+  "Minimum monthly income": "किमान मासिक उत्पन्न",
+  "Income must be below": "उत्पन्न यापेक्षा कमी हवे",
+  "Occupation must be": "व्यवसाय हवा",
+  "State must be": "राज्य हवे",
+  "Monthly income": "मासिक उत्पन्न",
+  "Income stability": "उत्पन्न स्थिरता",
+  "Eligible": "पात्र"
 };
 
 
@@ -1802,6 +2172,45 @@ function addDays(iso, days) {
   const date = new Date(`${iso}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+function recomputeAll() {
+  const allTransactions = [];
+
+  state.uploadedFiles.forEach((file) => {
+    if (file.validRows) {
+      file.validRows.forEach((row) => {
+        allTransactions.push({
+          date: row.date,
+          amount: row.amount,
+          direction: row.direction,
+          description: row.description || "",
+          _source: file.name
+        });
+      });
+    }
+  });
+
+  state.incomeEntries.forEach((entry) => {
+    allTransactions.push({
+      date: entry.date,
+      amount: entry.amount,
+      direction: "credit",
+      description: entry.source || "Manual entry",
+      _source: "Manual"
+    });
+  });
+
+  allTransactions.sort((a, b) => a.date.localeCompare(b.date));
+
+  state.mergedTransactions = allTransactions;
+
+  state.profile = computeProfile(allTransactions);
+  state.expenseProfile = computeExpenseProfile(allTransactions);
+  state.matches = matchSchemes(state.details, state.profile);
+
+  saveSession();
+  render();
 }
 
 function computeProfile(transactions) {
@@ -2033,6 +2442,92 @@ function matchSchemes(details, profile) {
     .sort((a, b) => b.rank - a.rank || a.name.localeCompare(b.name));
 }
 
+const LOAN_PRODUCTS = [
+  {
+    id: "pm-svanidhi",
+    name: "PM SVANidhi",
+    description: "Working capital loan up to ₹10,000 for street vendors, repayable in monthly installments.",
+    maxAmount: 10000,
+    interestRate: "0% (subsidized)",
+    minMonthlyIncome: 3000,
+    maxMonthlyIncome: 25000,
+    minAge: 18,
+    maxAge: 60,
+    occupations: ["Street vendor"],
+    states: []
+  },
+  {
+    id: "pm-mudra",
+    name: "MUDRA Loan (Shishu)",
+    description: "Loans up to ₹50,000 for income-generating activities in non-corporate small business sector.",
+    maxAmount: 50000,
+    interestRate: "8-12% p.a.",
+    minMonthlyIncome: 5000,
+    maxMonthlyIncome: 50000,
+    minAge: 18,
+    maxAge: 65,
+    occupations: [],
+    states: []
+  },
+  {
+    id: "micro-loan",
+    name: "Micro Enterprise Loan",
+    description: "Small business loan for informal workers to expand livelihood activities.",
+    maxAmount: 25000,
+    interestRate: "10-14% p.a.",
+    minMonthlyIncome: 4000,
+    maxMonthlyIncome: 40000,
+    minAge: 20,
+    maxAge: 60,
+    occupations: [],
+    states: []
+  }
+];
+
+function checkLoanEligibility(details, profile) {
+  if (!profile) return [];
+  const monthlyIncome = profile.monthlyIncomeEstimate;
+  const stabilityScore = profile.averageDaily > 0
+    ? Math.round((1 - Math.sqrt(profile.variance) / profile.averageDaily) * 100)
+    : 0;
+
+  return LOAN_PRODUCTS.map((loan) => {
+    const reasons = [];
+    const misses = [];
+    const age = Number(details.age);
+
+    if (age < loan.minAge) misses.push(`${t("Minimum age")} ${loan.minAge}`);
+    if (age > loan.maxAge) misses.push(`${t("Maximum age")} ${loan.maxAge}`);
+    if (loan.minMonthlyIncome > 0 && monthlyIncome < loan.minMonthlyIncome) {
+      misses.push(`${t("Minimum monthly income")} ${formatMoney(loan.minMonthlyIncome)}`);
+    }
+    if (loan.maxMonthlyIncome > 0 && monthlyIncome > loan.maxMonthlyIncome) {
+      misses.push(`${t("Income must be below")} ${formatMoney(loan.maxMonthlyIncome)}`);
+    }
+    if (loan.occupations.length > 0 && !loan.occupations.includes(details.occupation)) {
+      misses.push(`${t("Occupation must be")} ${loan.occupations.join(", ")}`);
+    }
+    if (loan.states.length > 0 && !loan.states.includes(details.state)) {
+      misses.push(`${t("State must be")} ${loan.states.join(", ")}`);
+    }
+
+    const eligible = misses.length === 0;
+    const rank = eligible ? 1 : 0;
+
+    if (eligible) reasons.push(`${t("Monthly income")} ${formatMoney(monthlyIncome)}`);
+    if (stabilityScore >= 35 && eligible) reasons.push(`${t("Income stability")}: ${stabilityScore}%`);
+
+    return {
+      ...loan,
+      eligible,
+      reasons,
+      misses,
+      rank,
+      stabilityScore
+    };
+  }).sort((a, b) => b.rank - a.rank);
+}
+
 function processCsv(csvText, sourceMeta = {}) {
   const parseResult = parseTransactions(csvText);
   state.parseResult = {
@@ -2173,6 +2668,33 @@ function brandMark() {
 
 function navButton(label, icon, active) {
   return `<button type="button" class="${active ? "is-active" : ""}" data-nav="${escapeHtml(label)}">${icon}<span>${escapeHtml(t(label))}</span></button>`;
+}
+
+function renderBudgetRows(expenseProfile) {
+  return expenseProfile.sortedCategories.slice(0, 6).map(function(pair) {
+    var cat = pair[0], spent = pair[1];
+    var budget = state.budgets[cat] || 0;
+    var pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+    var overBudget = budget > 0 && spent > budget;
+    var pctDisplay = Math.max(2, pct).toFixed(0);
+    var bgColor = overBudget ? "var(--red)" : pct > 80 ? "var(--accent)" : "var(--green)";
+    var spentStr = formatMoney(spent);
+    var budgetStr = budget > 0 ? "/ " + formatMoney(budget) : "";
+    var warnIcon = overBudget ? '<span style="color:var(--red);margin-left:4px">⚠</span>' : "";
+    var budgetVal = budget > 0 ? budget : "";
+    return '<div class="budget-row" data-budget-cat="' + escapeHtml(cat) + '">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+      + '<span style="font-size:0.85rem;font-weight:500">' + cat + '</span>'
+      + '<span style="font-size:0.82rem"><strong>' + spentStr + '</strong> ' + budgetStr + ' ' + warnIcon + '</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center">'
+      + '<div style="flex:1;height:8px;background:var(--surface);border-radius:4px;overflow:hidden">'
+      + '<div style="height:100%;background:' + bgColor + ';border-radius:4px;width:' + pctDisplay + '%"></div>'
+      + '</div>'
+      + '<input class="budget-input" type="number" min="0" step="100" placeholder="0" value="' + budgetVal + '" data-budget-amount="' + escapeHtml(cat) + '">'
+      + '</div>'
+      + '</div>';
+  }).join("");
 }
 
 function renderLangToggle() {
@@ -2325,7 +2847,22 @@ function renderLogin() {
     state.session = { phone: state.phoneDraft, startedAt: Date.now() };
     state.auditLogs = [];
     addAuditLog(`Demo session started.`);
-    processCsv(SAMPLE_DATASETS[0].csv, SAMPLE_DATASETS[0]);
+    const sample = SAMPLE_DATASETS[0];
+    const parseResult = parseTransactions(sample.csv);
+    state.uploadedFiles.push({
+      id: "file_" + Date.now(),
+      name: sample.name + " (sample)",
+      type: "csv",
+      validRows: parseResult.validRows,
+      errors: parseResult.errors,
+      format: parseResult.format || "generic"
+    });
+    state.details.occupation = sample.occupation;
+    state.details.state = sample.state;
+    state.details.age = sample.age;
+    state.profile = computeProfile(parseResult.validRows);
+    state.expenseProfile = computeExpenseProfile(parseResult.validRows);
+    state.matches = matchSchemes(state.details, state.profile);
     state.route = "dashboard";
     saveSession();
     render();
@@ -2428,11 +2965,29 @@ function renderUpload() {
         </div>
       </section>
 
-      <p class="copy">${t("Use a CSV with date, amount, direction. Links inside files are treated as plain text.")}</p>
+      <p class="copy">${t("Upload a CSV or bank statement PDF. Links inside files are treated as plain text.")}</p>
       <label class="upload-zone ${isConsentChecked ? "" : "is-disabled"}" id="drop-zone">
-        <input id="csv-file" type="file" accept=".csv,text/csv" ${isConsentChecked ? "" : "disabled"}>
-        <span>${ICONS.upload}<strong>${t("Tap to upload CSV")}</strong><small>${t("or drag and drop. CSV only, up to 5 MB.")}</small></span>
+        <input id="csv-file" type="file" accept=".csv,.pdf,text/csv,application/pdf" ${isConsentChecked ? "" : "disabled"}>
+        <span>${ICONS.upload}<strong>${t("Tap to upload CSV or PDF")}</strong><small>${t("or drag and drop. CSV or PDF, up to 5 MB.")}</small></span>
       </label>
+
+      ${state.uploadedFiles.length > 0 ? `
+      <section class="panel" aria-labelledby="files-title">
+        <h2 id="files-title">${t("Uploaded files")}</h2>
+        <div class="uploaded-files-list">
+          ${state.uploadedFiles.map((file) => `
+            <div class="uploaded-file-item" data-file-id="${escapeHtml(file.id)}">
+              <div class="uploaded-file-info">
+                <span class="uploaded-file-name">${escapeHtml(file.name)}</span>
+                <span class="uploaded-file-meta">${file.validRows.length} ${t("rows")} · ${t(file.format === "pdf" ? "Bank PDF" : "CSV")}</span>
+              </div>
+              <button class="icon-btn icon-btn--small" type="button" data-remove-file="${escapeHtml(file.id)}" aria-label="${t("Remove")} ${escapeHtml(file.name)}">${ICONS.close}</button>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+      ` : ""}
+
       <section class="panel" aria-labelledby="details-title">
         <h2 id="details-title">${t("Basic details for matching")}</h2>
         <div class="details-grid">
@@ -2454,6 +3009,47 @@ function renderUpload() {
           </label>
         </div>
       </section>
+      <section class="panel" aria-labelledby="manual-title">
+        <h2 id="manual-title">
+          <button class="collapse-toggle" type="button" data-toggle-manual aria-expanded="false" aria-controls="manual-section">${t("Manual income entry")}</button>
+        </h2>
+        <div id="manual-section" class="manual-section" hidden>
+          <div class="manual-form">
+            <label>
+              <span class="field-label">${t("Date")}</span>
+              <input class="text-input" id="manual-date" type="date" value="${new Date().toISOString().slice(0, 10)}">
+            </label>
+            <label>
+              <span class="field-label">${t("Amount")}</span>
+              <input class="text-input" id="manual-amount" type="number" min="1" step="1" placeholder="500">
+            </label>
+            <label>
+              <span class="field-label">${t("Source")}</span>
+              <select class="select-input" id="manual-source">
+                <option value="Cash">${t("Cash")}</option>
+                <option value="UPI">UPI</option>
+                <option value="Platform credit">${t("Platform credit")}</option>
+                <option value="Bank transfer">${t("Bank transfer")}</option>
+                <option value="Other">${t("Other")}</option>
+              </select>
+            </label>
+            <button class="secondary-btn" type="button" data-add-manual-entry>+ ${t("Add entry")}</button>
+          </div>
+          ${state.incomeEntries.length > 0 ? `
+          <div class="manual-entries-list">
+            ${state.incomeEntries.map((entry, i) => `
+              <div class="manual-entry-row">
+                <span class="manual-entry-date">${entry.date}</span>
+                <span class="manual-entry-amount">₹${entry.amount.toLocaleString("en-IN")}</span>
+                <span class="manual-entry-source">${entry.source}</span>
+                <button class="icon-btn icon-btn--small" type="button" data-remove-manual="${i}" aria-label="${t("Remove entry")}">${ICONS.close}</button>
+              </div>
+            `).join("")}
+          </div>
+          ` : ""}
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="samples-title">
         <h2 id="samples-title">${t("Sample datasets")}</h2>
         <div class="samples-grid">
@@ -2476,6 +3072,44 @@ function renderUpload() {
   document.querySelector("#age").addEventListener("input", updateDetails);
   document.querySelector("#occupation").addEventListener("change", updateDetails);
   document.querySelector("#state-select").addEventListener("change", updateDetails);
+
+  const toggleManual = document.querySelector("[data-toggle-manual]");
+  if (toggleManual) {
+    toggleManual.addEventListener("click", () => {
+      const section = document.querySelector("#manual-section");
+      const expanded = toggleManual.getAttribute("aria-expanded") === "true";
+      toggleManual.setAttribute("aria-expanded", !expanded);
+      section.hidden = expanded;
+    });
+  }
+
+  document.querySelector("[data-add-manual-entry]")?.addEventListener("click", () => {
+    const dateInput = document.querySelector("#manual-date");
+    const amountInput = document.querySelector("#manual-amount");
+    const sourceSelect = document.querySelector("#manual-source");
+    const date = dateInput?.value;
+    const amount = parseFloat(amountInput?.value);
+    const source = sourceSelect?.value || "Manual";
+
+    if (!date) { alert("Please select a date."); return; }
+    if (!Number.isFinite(amount) || amount <= 0) { alert("Please enter a valid amount."); return; }
+
+    state.incomeEntries.push({ date, amount, source });
+    addAuditLog(`Manual entry added: ₹${amount} on ${date} (${source})`);
+    recomputeAll();
+  });
+
+  document.querySelectorAll("[data-remove-manual]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.getAttribute("data-remove-manual"), 10);
+      if (!isNaN(idx) && idx >= 0 && idx < state.incomeEntries.length) {
+        const removed = state.incomeEntries[idx];
+        state.incomeEntries.splice(idx, 1);
+        addAuditLog(`Manual entry removed: ₹${removed.amount} on ${removed.date}`);
+        recomputeAll();
+      }
+    });
+  });
 
   const consentCheck = document.querySelector("#consent-check");
   if (consentCheck) {
@@ -2503,9 +3137,27 @@ function renderUpload() {
     button.addEventListener("click", () => {
       const sample = SAMPLE_DATASETS.find((item) => item.id === button.dataset.sample);
       addAuditLog(`Loaded sample dataset: ${sample.name}`);
-      processCsv(sample.csv, sample);
-      state.route = "upload";
-      render();
+      const parseResult = parseTransactions(sample.csv);
+      const fileEntry = {
+        id: "file_" + Date.now(),
+        name: sample.name + " (sample)",
+        type: "csv",
+        validRows: parseResult.validRows,
+        errors: parseResult.errors,
+        format: parseResult.format || "generic"
+      };
+      state.uploadedFiles.push(fileEntry);
+      if (sample.occupation) state.details.occupation = sample.occupation;
+      if (sample.state) state.details.state = sample.state;
+      if (sample.age) state.details.age = sample.age;
+      state.parseResult = {
+        totalRows: parseResult.validRows.length + parseResult.errors.length,
+        validRows: parseResult.validRows.length,
+        errors: parseResult.errors,
+        source: fileEntry.name,
+        format: parseResult.format || "generic"
+      };
+      recomputeAll();
     });
   });
 
@@ -2514,7 +3166,7 @@ function renderUpload() {
     const file = fileInput.files?.[0];
     if (file) {
       addAuditLog(`Selected statement file: ${file.name}`);
-      readCsvFile(file);
+      handleFileUpload(file);
     }
   });
 
@@ -2535,7 +3187,7 @@ function renderUpload() {
     const file = event.dataTransfer.files?.[0];
     if (file) {
       addAuditLog(`Dropped statement file: ${file.name}`);
-      readCsvFile(file);
+      handleFileUpload(file);
     }
   });
 
@@ -2547,6 +3199,30 @@ function renderUpload() {
       render();
     });
   }
+
+  document.querySelectorAll("[data-remove-file]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const fileId = btn.getAttribute("data-remove-file");
+      const idx = state.uploadedFiles.findIndex((f) => f.id === fileId);
+      if (idx !== -1) {
+        const removed = state.uploadedFiles[idx];
+        state.uploadedFiles.splice(idx, 1);
+        addAuditLog(`Removed file: ${removed.name}`);
+        if (state.uploadedFiles.length === 0) {
+          state.mergedTransactions = null;
+          state.profile = null;
+          state.expenseProfile = null;
+          state.matches = [];
+          state.parseResult = null;
+          saveSession();
+          render();
+        } else {
+          recomputeAll();
+        }
+      }
+    });
+  });
+
   bindBottomNav();
 }
 
@@ -2571,12 +3247,15 @@ function updateDetails() {
   }
 }
 
-function readCsvFile(file) {
-  if (!file.name.toLowerCase().endsWith(".csv") && file.type && !file.type.includes("csv")) {
+function handleFileUpload(file) {
+  const isCsv = file.name.toLowerCase().endsWith(".csv") || (file.type && file.type.includes("csv"));
+  const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+
+  if (!isCsv && !isPdf) {
     state.parseResult = {
       totalRows: 0,
       validRows: 0,
-      errors: [{ row: "-", issue: "Please upload a CSV file." }],
+      errors: [{ row: "-", issue: "Please upload a CSV or PDF file." }],
       source: file.name
     };
     state.profile = null;
@@ -2598,13 +3277,69 @@ function readCsvFile(file) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    updateDetails();
-    processCsv(String(reader.result || ""), { name: file.name });
-    render();
-  });
-  reader.readAsText(file);
+  if (isCsv) {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      updateDetails();
+      const csvText = String(reader.result || "");
+      const parseResult = parseTransactions(csvText);
+      const fileEntry = {
+        id: "file_" + Date.now(),
+        name: file.name,
+        type: "csv",
+        validRows: parseResult.validRows,
+        errors: parseResult.errors,
+        format: parseResult.format || "generic"
+      };
+      state.uploadedFiles.push(fileEntry);
+      state.parseResult = {
+        totalRows: parseResult.validRows.length + parseResult.errors.length,
+        validRows: parseResult.validRows.length,
+        errors: parseResult.errors,
+        source: file.name,
+        format: parseResult.format || "generic"
+      };
+      recomputeAll();
+    });
+    reader.readAsText(file);
+  } else if (isPdf) {
+    const reader = new FileReader();
+    reader.addEventListener("load", async () => {
+      updateDetails();
+      try {
+        const pdfData = new Uint8Array(reader.result);
+        const parseResult = await window.KaamPdfParser.parse(pdfData);
+        const fileEntry = {
+          id: "file_" + Date.now(),
+          name: file.name,
+          type: "pdf",
+          validRows: parseResult.validRows,
+          errors: parseResult.errors,
+          format: "pdf"
+        };
+        state.uploadedFiles.push(fileEntry);
+        state.parseResult = {
+          totalRows: parseResult.validRows.length + parseResult.errors.length,
+          validRows: parseResult.validRows.length,
+          errors: parseResult.errors,
+          source: file.name,
+          format: "pdf"
+        };
+        recomputeAll();
+      } catch (error) {
+        state.parseResult = {
+          totalRows: 0,
+          validRows: 0,
+          errors: [{ row: "-", issue: "PDF parsing error: " + error.message }],
+          source: file.name
+        };
+        state.profile = null;
+        state.matches = [];
+        render();
+      }
+    });
+    reader.readAsArrayBuffer(file);
+  }
 }
 
 function renderParseStatus() {
@@ -2616,7 +3351,7 @@ function renderParseStatus() {
     </tr>
   `).join("");
 
-  const formatLabels = { generic: "Generic CSV", gpay: "Google Pay", phonepe: "PhonePe", paytm: "PayTM" };
+  const formatLabels = { generic: "Generic CSV", gpay: "Google Pay", phonepe: "PhonePe", paytm: "PayTM", pdf: "Bank PDF" };
 
   return `
     <section class="panel parse-card" aria-labelledby="parse-title">
@@ -2797,6 +3532,13 @@ function renderInsightsPage() {
             </div>
           </div>
         </article>
+
+        <article class="google-card">
+          <div class="google-card-header">${ICONS.list} <span>${t("Budget")}</span></div>
+          <div style="margin-top:12px">
+            ${renderBudgetRows(expenseProfile)}
+          </div>
+        </article>
         ` : ""}
 
         <!-- Savings Projection -->
@@ -2819,6 +3561,33 @@ function renderInsightsPage() {
           </div>
           <p class="copy" style="margin-top:14px;font-size:0.86rem">${t("Save Rs")} ${formatMoney(profile.savings.savePerGoodDay)} ${t("on days earning above")} ${formatMoney(profile.goodThreshold)}. ${t("This will cover up to")} ${profile.savings.coveredLowDays} ${t("low-income days per month.")}</p>
         </article>
+
+        <!-- Tax Estimation -->
+        <article class="google-card">
+          <div class="google-card-header">${ICONS.shield} <span>${t("Tax Estimation")}</span></div>
+          <h3 class="google-card-title">${t("Estimated annual tax liability")}</h3>
+          ${(() => {
+            const annualIncome = profile.monthlyIncomeEstimate * 12;
+            let tax = 0;
+            if (annualIncome > 1200000) tax = (annualIncome - 1200000) * 0.3 + 150000;
+            else if (annualIncome > 1000000) tax = (annualIncome - 1000000) * 0.2 + 100000;
+            else if (annualIncome > 800000) tax = (annualIncome - 800000) * 0.15 + 50000;
+            else if (annualIncome > 600000) tax = (annualIncome - 600000) * 0.1 + 25000;
+            else if (annualIncome > 400000) tax = (annualIncome - 400000) * 0.05;
+            else tax = 0;
+            const netIncome = annualIncome - tax;
+            return `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+              <div class="stat-item-google"><span>${t("Annual income")}</span><strong>${formatMoney(annualIncome)}</strong></div>
+              <div class="stat-item-google"><span>${t("Estimated tax")}</span><strong>${formatMoney(tax)}</strong></div>
+              <div class="stat-item-google"><span>${t("Net income after tax")}</span><strong>${formatMoney(netIncome)}</strong></div>
+              <div class="stat-item-google"><span>${t("Effective tax rate")}</span><strong>${annualIncome > 0 ? ((tax / annualIncome) * 100).toFixed(1) : 0}%</strong></div>
+            </div>
+            <div class="google-card-footer" style="margin-top:12px;padding:8px 12px;background:var(--surface);border-radius:8px">
+              <small style="color:var(--muted)">${t("This is a simplified estimate. Consult a CA for accurate tax planning.")}</small>
+            </div>`;
+          })()}
+        </article>
       </div>
 
       ${renderBottomNav("Insights")}
@@ -2826,6 +3595,16 @@ function renderInsightsPage() {
   `;
 
   renderShell(insightContent, "Insights", "wide");
+
+  document.querySelectorAll("[data-budget-amount]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const cat = input.getAttribute("data-budget-amount");
+      const val = parseFloat(input.value);
+      state.budgets[cat] = Number.isFinite(val) && val >= 0 ? val : 0;
+      saveSession();
+    });
+  });
+
   bindSpeakButtons();
   bindBottomNav();
 }
@@ -2949,7 +3728,63 @@ function renderDashboard(activeView = "Dashboard") {
     </article>
   ` : "";
 
-  // Card 4: Welfare Schemes
+  // Card 4: Loan Eligibility
+  const loans = checkLoanEligibility(state.details, state.profile);
+  const eligibleLoans = loans.filter((l) => l.eligible);
+  const loanCard = `
+    <article class="google-card card-loan">
+      <div class="google-card-header">
+        ${ICONS.rupee}
+        <span>${t("Loan Eligibility")}</span>
+      </div>
+      <h3 class="google-card-title">${eligibleLoans.length > 0 ? `${eligibleLoans.length} ${t("loan options available")}` : t("No loans match your profile")}</h3>
+      <div class="google-card-body">
+        ${eligibleLoans.length > 0 ? eligibleLoans.slice(0, 3).map((loan) => `
+          <div class="loan-item" style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <strong>${t(loan.name)}</strong>
+              <span style="font-size:0.82rem;color:var(--green)">${t("Eligible")}</span>
+            </div>
+            <p class="copy" style="font-size:0.82rem;margin:4px 0">${t(loan.description)}</p>
+            <div style="display:flex;gap:12px;font-size:0.78rem;color:var(--muted)">
+              <span>${t("Up to")} ${formatMoney(loan.maxAmount)}</span>
+              <span>${loan.interestRate}</span>
+            </div>
+          </div>
+        `).join("") : `
+          <p class="copy" style="font-size:0.85rem">${t("Try adjusting your details or uploading more income data to improve eligibility.")}</p>
+        `}
+      </div>
+    </article>
+  `;
+
+  // Card 5: Document Checklist
+  const ALL_DOCUMENTS = ["Aadhaar Card", "PAN Card", "Bank account passbook", "Mobile number linked with Aadhaar", "Ration card", "Voter ID", "Driving license", "Income certificate"];
+  const checkedCount = ALL_DOCUMENTS.filter((d) => state.documents[d]).length;
+  const documentCard = `
+    <article class="google-card card-docs">
+      <div class="google-card-header">
+        ${ICONS.file}
+        <span>${t("Documents")}</span>
+      </div>
+      <h3 class="google-card-title">${checkedCount}/${ALL_DOCUMENTS.length} ${t("documents ready")}</h3>
+      <div class="google-card-body">
+        <div style="height:8px;background:var(--surface);border-radius:4px;overflow:hidden;margin-bottom:12px">
+          <div style="height:100%;background:var(--accent);border-radius:4px;width:${(checkedCount / ALL_DOCUMENTS.length) * 100}%"></div>
+        </div>
+        <div class="doc-checklist-grid">
+          ${ALL_DOCUMENTS.map((doc) => `
+            <label class="doc-check-item">
+              <input type="checkbox" ${state.documents[doc] ? "checked" : ""} data-doc="${escapeHtml(doc)}">
+              <span>${t(doc)}</span>
+            </label>
+          `).join("")}
+        </div>
+      </div>
+    </article>
+  `;
+
+  // Card 6: Welfare Schemes
   const schemesCard = `
     <article class="google-card card-schemes">
       <div class="google-card-header">
@@ -2993,6 +3828,8 @@ function renderDashboard(activeView = "Dashboard") {
         ${incomeAnalyticsCard}
         ${savingsCard}
         ${expenseCard}
+        ${loanCard}
+        ${documentCard}
       </div>
     `;
   } else if (activeView === "Schemes") {
@@ -3008,6 +3845,8 @@ function renderDashboard(activeView = "Dashboard") {
         ${incomeAnalyticsCard}
         ${savingsCard}
         ${expenseCard}
+        ${loanCard}
+        ${documentCard}
         ${schemesCard}
         ${summaryCard}
       </div>
@@ -3016,8 +3855,36 @@ function renderDashboard(activeView = "Dashboard") {
 
   const activeScheme = state.guidanceSchemeId ? (state.schemesDb.find(s => s.id === state.guidanceSchemeId) || FALLBACK_SCHEMES.find(s => s.id === state.guidanceSchemeId)) : null;
 
+  const onboardingSteps = [
+    { title: t("Welcome to Kaam Card"), text: t("This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.") },
+    { title: t("Income Analytics"), text: t("Your daily earnings chart shows good days and bad days, helping you understand your income patterns.") },
+    { title: t("Savings & Schemes"), text: t("Use the smart savings suggestion and check which government schemes you qualify for.") },
+    { title: t("Upload Data"), text: t("Tap Upload to add more statements or manual entries anytime.") }
+  ];
+  const onboardingTour = !state.onboardingDone ? `
+    <div class="onboarding-overlay" id="onboarding-tour">
+      <div class="onboarding-card">
+        <div class="onboarding-step-content">
+          <h3 class="onboarding-step-title">${onboardingSteps[0].title}</h3>
+          <p class="onboarding-step-text">${onboardingSteps[0].text}</p>
+        </div>
+        <div class="onboarding-progress">
+          <span class="onboarding-dot active"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+        </div>
+        <div class="onboarding-actions">
+          <button class="secondary-btn" type="button" data-onboarding-skip>${t("Skip")}</button>
+          <button class="primary-btn" type="button" data-onboarding-next>${t("Next")}</button>
+        </div>
+      </div>
+    </div>
+  ` : "";
+
   const dashboardContent = `
     <section class="dashboard-assistant-view">
+      ${onboardingTour}
       <div class="dashboard-breadcrumbs">
         <span class="crumb">${t("For you")}</span>
         <span class="crumb-separator">/</span>
@@ -3046,6 +3913,55 @@ function renderDashboard(activeView = "Dashboard") {
     state.copied = false;
     render();
     addAuditLog("Shareable summary viewed.");
+  });
+
+  // Bind onboarding tour
+  const onboardingOverlay = document.querySelector("#onboarding-tour");
+  if (onboardingOverlay) {
+    let onboardingIndex = 0;
+    const steps = [
+      { title: t("Welcome to Kaam Card"), text: t("This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.") },
+      { title: t("Income Analytics"), text: t("Your daily earnings chart shows good days and bad days, helping you understand your income patterns.") },
+      { title: t("Savings & Schemes"), text: t("Use the smart savings suggestion and check which government schemes you qualify for.") },
+      { title: t("Upload Data"), text: t("Tap Upload to add more statements or manual entries anytime.") }
+    ];
+    const titleEl = onboardingOverlay.querySelector(".onboarding-step-title");
+    const textEl = onboardingOverlay.querySelector(".onboarding-step-text");
+    const dots = onboardingOverlay.querySelectorAll(".onboarding-dot");
+
+    function updateOnboardingStep(index) {
+      titleEl.textContent = steps[index].title;
+      textEl.textContent = steps[index].text;
+      dots.forEach((dot, i) => dot.classList.toggle("active", i === index));
+    }
+
+    onboardingOverlay.querySelector("[data-onboarding-next]").addEventListener("click", () => {
+      onboardingIndex++;
+      if (onboardingIndex >= steps.length) {
+        state.onboardingDone = true;
+        saveSession();
+        onboardingOverlay.remove();
+      } else {
+        updateOnboardingStep(onboardingIndex);
+      }
+    });
+
+    onboardingOverlay.querySelector("[data-onboarding-skip]").addEventListener("click", () => {
+      state.onboardingDone = true;
+      saveSession();
+      onboardingOverlay.remove();
+    });
+  }
+
+  // Bind document checklist
+  document.querySelectorAll("[data-doc]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const doc = checkbox.getAttribute("data-doc");
+      state.documents[doc] = checkbox.checked;
+      addAuditLog(`Document ${checkbox.checked ? "marked ready" : "unmarked"}: ${doc}`);
+      saveSession();
+      render();
+    });
   });
 
   // Bind guide me triggers
@@ -3108,15 +4024,15 @@ function renderSchemeCard(match) {
   const maxAge = match.eligibility ? match.eligibility.maxAge : match.maxAge;
   const maxIncome = match.eligibility ? match.eligibility.maxIncome : match.maxMonthlyIncome;
 
-  const schemeSpeakText = `${match.name}. ${match.benefit || match.description}. ${reason}`;
+  const schemeSpeakText = `${t(match.name)}. ${t(match.benefit || match.description)}. ${reason}`;
 
   return `
     <article class="scheme-card">
       <div class="scheme-card__top">
         <span class="scheme-icon ${match.color || "blue"}">${ICONS[match.icon || "file"]}</span>
         <div>
-          <h3>${escapeHtml(match.name)} ${speakBtn(schemeSpeakText, state.lang)}</h3>
-          <p>${escapeHtml(match.benefit || match.description)}</p>
+          <h3>${escapeHtml(t(match.name))} ${speakBtn(schemeSpeakText, state.lang)}</h3>
+          <p>${escapeHtml(t(match.benefit || match.description))}</p>
         </div>
       </div>
       <p>${escapeHtml(reason)}</p>
@@ -3214,7 +4130,7 @@ function shareSummaryText() {
     `${t("Average daily income:")} ${formatMoney(profile.averageDaily)}`,
     `${t("Good days:")} ${profile.goodDays}; ${t("bad days:")} ${profile.badDays}`,
     `${t("Saving rule: save")} ${formatMoney(profile.savings.savePerGoodDay)} ${t("on days above")} ${formatMoney(profile.goodThreshold)}.`,
-    `${t("Likely schemes:")} ${eligible.map((item) => item.shortName).join(", ") || t("No exact match yet")}`,
+    `${t("Likely schemes:")} ${eligible.map((item) => t(item.shortName)).join(", ") || t("No exact match yet")}`,
     t("Demo note: eligibility is simplified and should be verified on the official portal.")
   ].join("\n");
 }
@@ -3338,7 +4254,7 @@ function exportWorkerCard() {
     <div class="section">
       <div class="section-title">${t("Matched Welfare Schemes")}</div>
       <ul class="scheme-list">
-        ${eligible.map((s) => `<li class="scheme-item"><span class="scheme-dot"></span><strong>${escapeHtml(s.shortName)}</strong> &mdash; ${escapeHtml(s.benefit || s.description || "")}</li>`).join("")}
+        ${eligible.map((s) => `<li class="scheme-item"><span class="scheme-dot"></span><strong>${escapeHtml(t(s.shortName))}</strong> &mdash; ${escapeHtml(t(s.benefit || s.description || ""))}</li>`).join("")}
       </ul>
     </div>` : ""}
   </div>
@@ -3870,6 +4786,23 @@ function renderGuidanceModal(scheme) {
     "Verify using Aadhaar-linked OTP.",
     "Submit your occupation details and get registered."
   ];
+  const isInsurance = ["pmjjby", "pmsby", "pmJay", "pm-jay"].includes(scheme.id);
+  const totalSteps = isInsurance ? 4 : 3;
+
+  const claimDocs = [
+    "Policy document / enrollment number",
+    "Aadhaar Card",
+    "Bank account details",
+    "Claim form (download from portal)",
+    "Supporting documents (hospital bills / death certificate)"
+  ];
+  const claimSteps = [
+    "Download the claim form from the official portal.",
+    "Fill in the policyholder details and policy number.",
+    "Attach all required supporting documents.",
+    "Submit the form at the nearest branch or online portal.",
+    "Track claim status using the acknowledgment number."
+  ];
 
   let stepContent = "";
   if (step === 1) {
@@ -3912,7 +4845,7 @@ function renderGuidanceModal(scheme) {
         </div>
       </div>
     `;
-  } else {
+  } else if (step === 3 && !isInsurance) {
     stepContent = `
       <div class="guidance-step-view" style="text-align: center;">
         <h4 class="guidance-step-title">${t("Step 3: Access Official Portal")}</h4>
@@ -3933,6 +4866,50 @@ function renderGuidanceModal(scheme) {
         <p class="copy" style="font-size: 0.8rem; color: var(--muted); margin-top: 15px;">
           ${t("Always confirm the URL ends in .gov.in or .nic.in before submitting any personal information.")}
         </p>
+      </div>
+    `;
+  } else if (step === 3 && isInsurance) {
+    const claimDocItems = claimDocs.map((doc) => `
+      <li class="guidance-doc-item">
+        <label class="guidance-doc-label">
+          <input type="checkbox" class="guidance-doc-checkbox doc-checkbox">
+          <span>${escapeHtml(t(doc))}</span>
+        </label>
+      </li>
+    `).join("");
+    stepContent = `
+      <div class="guidance-step-view">
+        <h4 class="guidance-step-title">${t("Step 3: Claim Documents")}</h4>
+        <p class="copy" style="margin-bottom: 15px; font-size: 0.88rem;">${t("Prepare these documents if you need to file a claim:")}</p>
+        <ul class="guidance-doc-checklist">
+          ${claimDocItems}
+        </ul>
+      </div>
+    `;
+  } else {
+    const claimStepItems = claimSteps.map((s, idx) => `
+      <div class="guidance-instruction-card">
+        <div class="guidance-instruction-num">${idx + 1}</div>
+        <p class="guidance-instruction-desc">${escapeHtml(t(s))}</p>
+      </div>
+    `).join("");
+    stepContent = `
+      <div class="guidance-step-view">
+        <h4 class="guidance-step-title">${t("Step 4: File a Claim")}</h4>
+        <p class="copy" style="margin-bottom: 15px; font-size: 0.88rem;">${t("Follow these steps to file a claim on the official portal:")}</p>
+        <div class="instructions-timeline">
+          ${claimStepItems}
+        </div>
+        <div class="guidance-portal-card" style="margin-top:16px">
+          <div class="guidance-portal-badge">
+            <span class="guidance-portal-badge-icon">${ICONS.shield}</span>
+            <span>${t("Verified Official Portal")}</span>
+          </div>
+          <a class="secure-link-btn guidance-portal-link" href="${escapeHtml(url ? url.href : "#")}" target="_blank" rel="noopener noreferrer">
+            <span>${t("Open official portal")}</span>
+            ${ICONS.external}
+          </a>
+        </div>
       </div>
     `;
   }
@@ -3959,8 +4936,15 @@ function renderGuidanceModal(scheme) {
           <div class="guidance-step-line ${step >= 3 ? "active" : ""}"></div>
           <div class="guidance-step-indicator ${step >= 3 ? "active" : ""}">
             <div class="guidance-step-num">3</div>
+            <span>${isInsurance ? t("Claim") : t("Apply")}</span>
+          </div>
+          ${isInsurance ? `
+          <div class="guidance-step-line ${step >= 4 ? "active" : ""}"></div>
+          <div class="guidance-step-indicator ${step >= 4 ? "active" : ""}">
+            <div class="guidance-step-num">4</div>
             <span>${t("Apply")}</span>
           </div>
+          ` : ""}
         </div>
         
         <div class="guidance-modal-body">
@@ -3969,7 +4953,7 @@ function renderGuidanceModal(scheme) {
         
         <footer class="guidance-modal-footer">
           <button class="secondary-btn" type="button" data-prev-step ${step === 1 ? "disabled" : ""}>${t("Back")}</button>
-          ${step < 3 ? `
+          ${step < totalSteps ? `
             <button class="primary-btn" type="button" data-next-step>${t("Next Step")}</button>
           ` : `
             <button class="primary-btn" type="button" data-close-guidance>${t("Finish")}</button>
@@ -4000,7 +4984,7 @@ function bindGuidanceModalEvents() {
   });
 
   modal.querySelector("[data-next-step]")?.addEventListener("click", () => {
-    if (state.guidanceStep < 3) {
+    if (state.guidanceStep < 4) {
       state.guidanceStep += 1;
       render();
     }
