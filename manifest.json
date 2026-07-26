@@ -7,6 +7,40 @@
   "background_color": "#F9F8F6",
   "theme_color": "#C85A32",
   "orientation": "portrait",
+  "categories": ["finance", "productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Upload Statement",
+      "short_name": "Upload",
+      "description": "Upload a bank or UPI statement CSV/PDF",
+      "url": "/?upload=true",
+      "icons": [{ "src": "favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Schemes",
+      "short_name": "Schemes",
+      "description": "Check eligible welfare schemes",
+      "url": "/?view=schemes",
+      "icons": [{ "src": "favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Income Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your income analytics and savings",
+      "url": "/?view=dashboard",
+      "icons": [{ "src": "favicon.svg", "sizes": "192x192" }]
+    }
+  ],
+  "share_target": {
+    "action": "/?share=true",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "icons": [
     {
       "src": "favicon.svg",
@@ -20,5 +54,7 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
-  ]
+  ],
+  "prefer_related_applications": false,
+  "scope": "/"
 }

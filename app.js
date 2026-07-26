@@ -12,6 +12,159 @@ const DAYS_IN_MONTH = 30;
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const IDLE_WARN_MS = 25 * 60 * 1000;
 
+// Offline Upload Queue
+const UPLOAD_QUEUE_KEY = "kaam-card-upload-queue";
+
+async function addToUploadQueue(file, metadata = {}) {
+  const queueItem = {
+    id: "upload_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9),
+    fileName: file.name,
+    fileType: file.name.toLowerCase().endsWith(".csv") ? "csv" : "pdf",
+    fileData: await fileToBase64(file),
+    metadata: {
+      ...metadata,
+      uploadedAt: Date.now(),
+      fileSize: file.size
+    },
+    status: "pending",
+    retries: 0
+  };
+
+  try {
+    if (window.KaamDb) {
+      await window.KaamDb.set(UPLOAD_QUEUE_KEY + "_" + queueItem.id, queueItem);
+    } else {
+      // Fallback to localStorage
+      const queue = JSON.parse(localStorage.getItem(UPLOAD_QUEUE_KEY) || "[]");
+      queue.push(queueItem);
+      localStorage.setItem(UPLOAD_QUEUE_KEY, JSON.stringify(queue));
+    }
+    return queueItem;
+  } catch (error) {
+    console.error("Failed to add to upload queue:", error);
+    return null;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function getUploadQueue() {
+  try {
+    if (window.KaamDb) {
+      // Get all keys starting with upload queue prefix
+      const db = await window.KaamDb.openDb();
+      return new Promise((resolve) => {
+        const tx = db.transaction("uploadQueue", "readonly");
+        const store = tx.objectStore("uploadQueue");
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => resolve([]);
+      });
+    } else {
+      return JSON.parse(localStorage.getItem(UPLOAD_QUEUE_KEY) || "[]");
+    }
+  } catch {
+    return JSON.parse(localStorage.getItem(UPLOAD_QUEUE_KEY) || "[]");
+  }
+}
+
+async function processUploadQueue() {
+  if (!navigator.onLine) return;
+  
+  const queue = await getUploadQueue();
+  const pending = queue.filter(item => item.status === "pending");
+  
+  for (const item of pending) {
+    try {
+      // Update status to processing
+      item.status = "processing";
+      await updateUploadQueueItem(item);
+      
+      // Convert base64 back to file
+      const file = base64ToFile(item.fileData, item.fileName, item.fileType);
+      
+      // Process the file (simulate upload)
+      await processQueuedFile(file, item.metadata);
+      
+      // Mark as completed
+      item.status = "completed";
+      item.completedAt = Date.now();
+      await updateUploadQueueItem(item);
+      
+      addAuditLog(`Processed offline upload: ${item.fileName}`);
+    } catch (error) {
+      console.error("Failed to process queued upload:", error);
+      item.status = "failed";
+      item.error = error.message;
+      item.retries = (item.retries || 0) + 1;
+      await updateUploadQueueItem(item);
+    }
+  }
+}
+
+function base64ToFile(base64, fileName, fileType) {
+  const byteString = atob(base64);
+  const mimeType = fileType === "csv" ? "text/csv" : "application/pdf";
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new File([ab], fileName, { type: mimeType });
+}
+
+async function processQueuedFile(file, metadata) {
+  // Reuse the existing file processing logic
+  if (file.type.includes("csv") || file.name.endsWith(".csv")) {
+    const text = await file.text();
+    const parseResult = parseTransactions(text);
+    return { validRows: parseResult.validRows, errors: parseResult.errors };
+  } else {
+    const arrayBuffer = await file.arrayBuffer();
+    const parseResult = await window.KaamPdfParser.parse(new Uint8Array(arrayBuffer));
+    return { validRows: parseResult.validRows, errors: parseResult.errors };
+  }
+}
+
+async function updateUploadQueueItem(item) {
+  try {
+    if (window.KaamDb) {
+      await window.KaamDb.set("kaam-card-upload-queue_" + item.id, item);
+    } else {
+      const queue = JSON.parse(localStorage.getItem(UPLOAD_QUEUE_KEY) || "[]");
+      const idx = queue.findIndex(i => i.id === item.id);
+      if (idx >= 0) queue[idx] = item;
+      localStorage.setItem(UPLOAD_QUEUE_KEY, JSON.stringify(queue));
+    }
+  } catch (error) {
+    console.error("Failed to update upload queue item:", error);
+  }
+}
+
+// Register online/offline handlers
+window.addEventListener("online", () => {
+  addAuditLog("Connection restored. Processing pending uploads...");
+  processUploadQueue();
+});
+
+window.addEventListener("offline", () => {
+  addAuditLog("Connection lost. Uploads will be queued for later.");
+});
+
+// Process queue on startup
+document.addEventListener("DOMContentLoaded", () => {
+  if (navigator.onLine) {
+    processUploadQueue();
+  }
+});
+
 const ICONS = {
   wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5v-9Z"/><path d="M16 12h4"/><path d="M6 9h9"/></svg>',
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></svg>',
@@ -95,6 +248,90 @@ function getInitialTheme() {
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
+  if (state.highContrast) {
+    document.documentElement.classList.add("high-contrast");
+  } else {
+    document.documentElement.classList.remove("high-contrast");
+  }
+}
+
+function toggleHighContrast() {
+  state.highContrast = !state.highContrast;
+  applyTheme(state.theme);
+  saveSession();
+  addAuditLog(`High contrast mode ${state.highContrast ? "enabled" : "disabled"}`);
+  announceToScreenReader(state.highContrast ? t("High contrast enabled") : t("High contrast disabled"));
+}
+
+function toggleVoiceInput() {
+  state.voiceEnabled = !state.voiceEnabled;
+  saveSession();
+  addAuditLog(`Voice input ${state.voiceEnabled ? "enabled" : "disabled"}`);
+  announceToScreenReader(state.voiceEnabled ? t("Voice input enabled") : t("Voice input disabled"));
+}
+
+function announceToScreenReader(message) {
+  const announcement = document.createElement("div");
+  announcement.setAttribute("role", "status");
+  announcement.setAttribute("aria-live", "polite");
+  announcement.setAttribute("aria-atomic", "true");
+  announcement.className = "sr-only";
+  announcement.style.position = "absolute";
+  announcement.style.width = "1px";
+  announcement.style.height = "1px";
+  announcement.style.padding = "0";
+  announcement.style.margin = "-1px";
+  announcement.style.overflow = "hidden";
+  announcement.style.clip = "rect(0, 0, 0, 0)";
+  announcement.style.whiteSpace = "nowrap";
+  announcement.style.border = "0";
+  announcement.textContent = message;
+  document.body.appendChild(announcement);
+  setTimeout(() => announcement.remove(), 1000);
+}
+
+function initVoiceInput() {
+  if (!state.voiceEnabled || !window.SpeechRecognition && !window.webkitSpeechRecognition) return;
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = state.lang === "hi" ? "hi-IN" : state.lang === "ta" ? "ta-IN" : state.lang === "te" ? "te-IN" : state.lang === "mr" ? "mr-IN" : "en-IN";
+  
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    const activeInput = document.activeElement;
+    if (activeInput && (activeInput.tagName === "INPUT" || activeInput.tagName === "TEXTAREA")) {
+      activeInput.value += (activeInput.value ? " " : "") + transcript;
+      activeInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+  
+  recognition.onerror = (event) => {
+    console.warn("Speech recognition error:", event.error);
+  };
+  
+  // Add voice input button to text inputs
+  document.querySelectorAll("input[type='text'], textarea").forEach(input => {
+    if (!input.dataset.voiceAdded) {
+      const voiceBtn = document.createElement("button");
+      voiceBtn.type = "button";
+      voiceBtn.className = "voice-input-btn";
+      voiceBtn.innerHTML = ICONS.mic;
+      voiceBtn.style.cssText = "position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--muted)";
+      voiceBtn.title = t("Tap to speak");
+      voiceBtn.addEventListener("click", () => {
+        recognition.start();
+      });
+      input.style.position = "relative";
+      input.parentElement.style.position = "relative";
+      input.parentElement.appendChild(voiceBtn);
+      input.dataset.voiceAdded = "true";
+    }
+  });
+  
+  return recognition;
 }
 
 function saveSession() {
@@ -111,8 +348,11 @@ function saveSession() {
       uploadedFiles: state.uploadedFiles,
       mergedTransactions: state.mergedTransactions,
       budgets: state.budgets,
+      savingsGoals: state.savingsGoals,
       documents: state.documents,
-      onboardingDone: state.onboardingDone
+      onboardingDone: state.onboardingDone,
+      highContrast: state.highContrast,
+      voiceEnabled: state.voiceEnabled
     };
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
@@ -136,8 +376,11 @@ function loadSession() {
     if (data.uploadedFiles) state.uploadedFiles = data.uploadedFiles;
     if (data.mergedTransactions) state.mergedTransactions = data.mergedTransactions;
     if (data.budgets) state.budgets = data.budgets;
+    if (data.savingsGoals) state.savingsGoals = data.savingsGoals;
     if (data.documents) state.documents = data.documents;
     if (data.onboardingDone) state.onboardingDone = data.onboardingDone;
+    if (data.highContrast !== undefined) state.highContrast = data.highContrast;
+    if (data.voiceEnabled !== undefined) state.voiceEnabled = data.voiceEnabled;
     return Boolean(data.session);
   } catch (error) {
     return false;
@@ -183,6 +426,7 @@ function clearSessionData() {
   state.uploadedFiles = [];
   state.mergedTransactions = null;
   state.budgets = {};
+  state.savingsGoals = [];
   state.documents = {};
   state.consentGiven = false;
   clearSessionStorage();
@@ -308,7 +552,27 @@ const ALLOWED_SCHEME_URLS = {
   pmJay: "https://www.pmjay.gov.in/",
   pmjjby: "https://financialservices.gov.in/beta/en/pmjjby",
   pmsby: "https://financialservices.gov.in/beta/en/pmsby",
-  delhiBocw: "https://labour.delhi.gov.in/labour/delhi-building-and-other-construction-workers-welfare-board"
+  delhiBocw: "https://labour.delhi.gov.in/labour/delhi-building-and-other-construction-workers-welfare-board",
+  maharashtraBocw: "https://bocw.maharashtra.gov.in/",
+  karnatakaUnorganized: "https://kwssb.karnataka.gov.in/",
+  tamilNaduManual: "https://tnmwwb.tn.gov.in/",
+  upBocw: "https://upbocw.in/",
+  westBengalUnorganized: "https://wbunorganizedworkers.gov.in/",
+  rajasthanBocw: "https://bocw.rajasthan.gov.in/",
+  gujaratBocw: "https://bocw.gujarat.gov.in/",
+  mpBocw: "https://bocw.mp.gov.in/",
+  biharUnorganized: "https://labour.bihar.gov.in/",
+  odishaUnorganized: "https://labour.odisha.gov.in/",
+  pmSvanidhi: "https://pmsvanidhi.mohua.gov.in/",
+  atalPension: "https://www.npscra.nsdl.co.in/",
+  pmMudra: "https://www.mudra.org.in/",
+  jananiSuraksha: "https://nhm.gov.in/index1.php?lang=1&level=2&sublinkid=911&lid=297",
+  matruVandana: "https://wcd.nic.in/schemes/pradhan-mantri-matru-vandana-yojana",
+  ayushmanBharat: "https://abha.abdm.gov.in/",
+  npsVatsalya: "https://www.npscra.nsdl.co.in/",
+  skillIndia: "https://www.pmkvyofficial.org/",
+  standUpIndia: "https://www.standupindia.gov.in/",
+  ektaMall: "https://pmsvanidhi.mohua.gov.in/ektamall"
 };
 
 const FALLBACK_SCHEMES = [
@@ -322,7 +586,9 @@ const FALLBACK_SCHEMES = [
     maxMonthlyIncome: 15000,
     occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
     icon: "rupee",
-    color: "green"
+    color: "green",
+    deadline: "2026-03-31",
+    reminderDays: [60, 30, 7, 1]
   },
   {
     id: "eShram",
@@ -334,7 +600,9 @@ const FALLBACK_SCHEMES = [
     maxMonthlyIncome: 30000,
     occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
     icon: "file",
-    color: "blue"
+    color: "blue",
+    deadline: "2026-12-31",
+    reminderDays: [90, 30, 7]
   },
   {
     id: "pmJay",
@@ -346,7 +614,9 @@ const FALLBACK_SCHEMES = [
     maxMonthlyIncome: 20000,
     occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
     icon: "shield",
-    color: "saffron"
+    color: "saffron",
+    deadline: "2026-12-31",
+    reminderDays: [60, 30, 7]
   },
   {
     id: "pmjjby",
@@ -358,7 +628,9 @@ const FALLBACK_SCHEMES = [
     maxMonthlyIncome: 30000,
     occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
     icon: "shield",
-    color: "blue"
+    color: "blue",
+    deadline: "2026-05-31",
+    reminderDays: [30, 14, 3]
   },
   {
     id: "pmsby",
@@ -370,7 +642,9 @@ const FALLBACK_SCHEMES = [
     maxMonthlyIncome: 30000,
     occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
     icon: "shield",
-    color: "green"
+    color: "green",
+    deadline: "2026-05-31",
+    reminderDays: [30, 14, 3]
   },
   {
     id: "delhiBocw",
@@ -383,6 +657,263 @@ const FALLBACK_SCHEMES = [
     occupations: ["Construction worker"],
     states: ["Delhi"],
     icon: "home",
+    color: "saffron",
+    deadline: "2026-09-30",
+    reminderDays: [30, 7, 1]
+  },
+  {
+    id: "maharashtraBocw",
+    name: "Maharashtra Building & Other Construction Workers Welfare Board",
+    shortName: "Maharashtra BOCW",
+    benefit: "Welfare benefits, pension, accident cover for construction workers",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 25000,
+    occupations: ["Construction worker"],
+    states: ["Maharashtra"],
+    icon: "home",
+    color: "saffron",
+    deadline: "2026-10-31",
+    reminderDays: [30, 7, 1]
+  },
+  {
+    id: "karnatakaUnorganized",
+    name: "Karnataka Unorganised Workers Social Security Board",
+    shortName: "Karnataka UWSSB",
+    benefit: "Pension, health insurance, accident cover for unorganised workers",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 20000,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    states: ["Karnataka"],
+    icon: "shield",
+    color: "blue",
+    deadline: "2026-11-30",
+    reminderDays: [30, 7, 1]
+  },
+  {
+    id: "tamilNaduManual",
+    name: "Tamil Nadu Manual Workers Welfare Board",
+    shortName: "TN Manual Workers",
+    benefit: "Pension, family pension, education assistance, accident relief",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 18000,
+    occupations: ["Construction worker", "Street vendor", "Domestic worker", "Home-based worker"],
+    states: ["Tamil Nadu"],
+    icon: "home",
+    color: "green"
+  },
+  {
+    id: "upBocw",
+    name: "Uttar Pradesh Building & Other Construction Workers Welfare Board",
+    shortName: "UP BOCW",
+    benefit: "Pension, maternity benefit, disability pension, death benefit",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 15000,
+    occupations: ["Construction worker"],
+    states: ["Uttar Pradesh"],
+    icon: "home",
+    color: "saffron"
+  },
+  {
+    id: "westBengalUnorganized",
+    name: "West Bengal Unorganised Sector Workers Welfare Board",
+    shortName: "WB Unorganised",
+    benefit: "Pension, health scheme, death benefit, education grant",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 20000,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    states: ["West Bengal"],
+    icon: "shield",
+    color: "blue"
+  },
+  {
+    id: "rajasthanBocw",
+    name: "Rajasthan Building & Other Construction Workers Welfare Board",
+    shortName: "Rajasthan BOCW",
+    benefit: "Pension, accident insurance, maternity benefit, scholarship",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 20000,
+    occupations: ["Construction worker"],
+    states: ["Rajasthan"],
+    icon: "home",
+    color: "green"
+  },
+  {
+    id: "gujaratBocw",
+    name: "Gujarat Building & Other Construction Workers Welfare Board",
+    shortName: "Gujarat BOCW",
+    benefit: "Pension, accident cover, tool kit assistance, skill training",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 15000,
+    occupations: ["Construction worker"],
+    states: ["Gujarat"],
+    icon: "home",
+    color: "saffron"
+  },
+  {
+    id: "mpBocw",
+    name: "Madhya Pradesh Building & Other Construction Workers Welfare Board",
+    shortName: "MP BOCW",
+    benefit: "Pension, accident insurance, marriage assistance, education grant",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 15000,
+    occupations: ["Construction worker"],
+    states: ["Madhya Pradesh"],
+    icon: "home",
+    color: "blue"
+  },
+  {
+    id: "biharUnorganized",
+    name: "Bihar Unorganised Workers Social Security Board",
+    shortName: "Bihar Unorganised",
+    benefit: "Pension, health insurance, disability cover, death benefit",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 15000,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    states: ["Bihar"],
+    icon: "shield",
+    color: "green"
+  },
+  {
+    id: "odishaUnorganized",
+    name: "Odisha Unorganised Workers Welfare Board",
+    shortName: "Odisha Unorganised",
+    benefit: "Pension, accident insurance, health cover, scholarship",
+    minAge: 18,
+    maxAge: 60,
+    maxMonthlyIncome: 15000,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    states: ["Odisha"],
+    icon: "shield",
+    color: "saffron"
+  },
+  {
+    id: "pmSvanidhi",
+    name: "PM SVANidhi",
+    shortName: "PM SVANidhi",
+    benefit: "Collateral-free working capital loan up to ₹50,000 for street vendors",
+    minAge: 18,
+    maxAge: 70,
+    maxMonthlyIncome: null,
+    occupations: ["Street vendor"],
+    icon: "wallet",
+    color: "blue"
+  },
+  {
+    id: "atalPension",
+    name: "Atal Pension Yojana",
+    shortName: "APY",
+    benefit: "Guaranteed pension ₹1,000-5,000/month after age 60",
+    minAge: 18,
+    maxAge: 40,
+    maxMonthlyIncome: null,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    icon: "rupee",
+    color: "saffron"
+  },
+  {
+    id: "pmMudra",
+    name: "PM MUDRA Yojana (Shishu)",
+    shortName: "MUDRA Shishu",
+    benefit: "Micro loan up to ₹50,000 for small business",
+    minAge: 18,
+    maxAge: 65,
+    maxMonthlyIncome: null,
+    occupations: ["Street vendor", "Home-based worker", "Other informal worker"],
+    icon: "wallet",
+    color: "green"
+  },
+  {
+    id: "jananiSuraksha",
+    name: "Janani Suraksha Yojana",
+    shortName: "JSY",
+    benefit: "Cash assistance for institutional delivery",
+    minAge: 18,
+    maxAge: 45,
+    maxMonthlyIncome: 20000,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    states: [],
+    icon: "shield",
+    color: "saffron"
+  },
+  {
+    id: "matruVandana",
+    name: "Pradhan Mantri Matru Vandana Yojana",
+    shortName: "PMMVY",
+    benefit: "₹5,000 cash incentive for first live birth",
+    minAge: 18,
+    maxAge: 45,
+    maxMonthlyIncome: 20000,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    icon: "rupee",
+    color: "blue"
+  },
+  {
+    id: "ayushmanBharat",
+    name: "Ayushman Bharat Health Account (ABHA)",
+    shortName: "ABHA",
+    benefit: "Digital health ID for seamless healthcare access",
+    minAge: 0,
+    maxAge: 99,
+    maxMonthlyIncome: null,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    icon: "shield",
+    color: "green"
+  },
+  {
+    id: "npsVatsalya",
+    name: "NPS Vatsalya",
+    shortName: "NPS Vatsalya",
+    benefit: "Pension account for minors, converts to regular NPS at 18",
+    minAge: 0,
+    maxAge: 17,
+    maxMonthlyIncome: null,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    icon: "rupee",
+    color: "saffron"
+  },
+  {
+    id: "skillIndia",
+    name: "PM Kaushal Vikas Yojana (PMKVY)",
+    shortName: "PMKVY",
+    benefit: "Free skill training with certification and placement support",
+    minAge: 15,
+    maxAge: 45,
+    maxMonthlyIncome: null,
+    occupations: ["Delivery worker", "Driver", "Construction worker", "Domestic worker", "Street vendor", "Home-based worker", "Other informal worker"],
+    icon: "file",
+    color: "blue"
+  },
+  {
+    id: "standUpIndia",
+    name: "Stand-Up India",
+    shortName: "Stand-Up India",
+    benefit: "Bank loan ₹10 lakh - ₹1 crore for SC/ST/Women entrepreneurs",
+    minAge: 18,
+    maxAge: 65,
+    maxMonthlyIncome: null,
+    occupations: ["Home-based worker", "Street vendor", "Other informal worker"],
+    icon: "wallet",
+    color: "green"
+  },
+  {
+    id: "ektaMall",
+    name: "Ekta Mall (PM SVANidhi Extension)",
+    shortName: "Ekta Mall",
+    benefit: "E-commerce platform for street vendors to sell online",
+    minAge: 18,
+    maxAge: 70,
+    maxMonthlyIncome: null,
+    occupations: ["Street vendor"],
+    icon: "wallet",
     color: "saffron"
   }
 ];
@@ -420,8 +951,11 @@ const state = {
   uploadedFiles: [],
   mergedTransactions: null,
   budgets: {},
+  savingsGoals: [],
   documents: {},
   onboardingDone: false,
+  highContrast: false,
+  voiceEnabled: true,
   lastActivity: Date.now()
 };
 
@@ -441,6 +975,19 @@ const TRANSLATIONS = {
   "Export Card": "कार्ड निर्यात करें",
   "Light Mode": "लाइट मोड",
   "Dark Mode": "डार्क मोड",
+  "High Contrast": "हाई कंट्रास्ट",
+  "Voice Input": "वॉयस इनपुट",
+  "Screen Reader": "स्क्रीन रीडर",
+  "Enable High Contrast": "हाई कंट्रास्ट सक्षम करें",
+  "Disable High Contrast": "हाई कंट्रास्ट अक्षम करें",
+  "Enable Voice Input": "वॉयस इनपुट सक्षम करें",
+  "Disable Voice Input": "वॉयस इनपुट अक्षम करें",
+  "High contrast enabled": "हाई कंट्रास्ट सक्षम",
+  "High contrast disabled": "हाई कंट्रास्ट अक्षम",
+  "Voice input enabled": "वॉयस इनपुट सक्षम",
+  "Voice input disabled": "वॉयस इनपुट अक्षम",
+  "Tap to speak": "बोलने के लिए टैप करें",
+  "Listening...": "सुन रहा है...",
   "For you": "आपके लिए",
   "SECURE SANDBOX": "सुरक्षित सैंडबॉक्स",
   "LOG IN / START": "लॉग इन / शुरू करें",
@@ -614,6 +1161,44 @@ const TRANSLATIONS = {
   "Life insurance cover": "जीवन बीमा कवर",
   "Accident insurance cover": "दुर्घटना बीमा कवर",
   "Welfare benefits for registered construction workers": "पंजीकृत निर्माण श्रमिकों के लिए कल्याण लाभ",
+
+  // New state-specific schemes
+  "Maharashtra Building & Other Construction Workers Welfare Board": "महाराष्ट्र भवन और अन्य निर्माण श्रमिक कल्याण बोर्ड",
+  "Karnataka Unorganised Workers Social Security Board": "कर्नाटक असंगठित श्रमिक सामाजिक सुरक्षा बोर्ड",
+  "Tamil Nadu Manual Workers Welfare Board": "तमिलनाडु शारीरिक श्रमिक कल्याण बोर्ड",
+  "Uttar Pradesh Building & Other Construction Workers Welfare Board": "उत्तर प्रदेश भवन और अन्य निर्माण श्रमिक कल्याण बोर्ड",
+  "West Bengal Unorganised Sector Workers Welfare Board": "पश्चिम बंगाल असंगठित क्षेत्र श्रमिक कल्याण बोर्ड",
+  "Rajasthan Building & Other Construction Workers Welfare Board": "राजस्थान भवन और अन्य निर्माण श्रमिक कल्याण बोर्ड",
+  "Gujarat Building & Other Construction Workers Welfare Board": "गुजरात भवन और अन्य निर्माण श्रमिक कल्याण बोर्ड",
+  "Madhya Pradesh Building & Other Construction Workers Welfare Board": "मध्य प्रदेश भवन और अन्य निर्माण श्रमिक कल्याण बोर्ड",
+  "Bihar Unorganised Workers Social Security Board": "बिहार असंगठित श्रमिक सामाजिक सुरक्षा बोर्ड",
+  "Odisha Unorganised Workers Welfare Board": "ओडिशा असंगठित श्रमिक कल्याण बोर्ड",
+  "PM SVANidhi": "पीएम स्वनिधि",
+  "Atal Pension Yojana": "अटल पेंशन योजना",
+  "PM MUDRA Yojana (Shishu)": "पीएम मुद्रा योजना (शिशु)",
+  "Janani Suraksha Yojana": "जननी सुरक्षा योजना",
+  "Pradhan Mantri Matru Vandana Yojana": "प्रधानमंत्री मातृ वंदना योजना",
+  "Ayushman Bharat Health Account (ABHA)": "आयुष्मान भारत स्वास्थ्य खाता (एबीएचए)",
+  "NPS Vatsalya": "एनपीएस वात्सल्य",
+  "PM Kaushal Vikas Yojana (PMKVY)": "पीएम कौशल विकास योजना (पीएमकेवीवाई)",
+  "Stand-Up India": "स्टैंड-अप इंडिया",
+  "Ekta Mall (PM SVANidhi Extension)": "एकता मॉल (पीएम स्वनिधि विस्तार)",
+  "Welfare benefits for registered construction workers": "पंजीकृत निर्माण श्रमिकों के लिए कल्याण लाभ",
+  "Pension, accident insurance, maternity benefit, death benefit": "पेंशन, दुर्घटना बीमा, मातृत्व लाभ, मृत्यु लाभ",
+  "Pension, accident cover, tool kit assistance, skill training": "पेंशन, दुर्घटना कवर, टूल किट सहायता, कौशल प्रशिक्षण",
+  "Pension, accident insurance, marriage assistance, education grant": "पेंशन, दुर्घटना बीमा, विवाह सहायता, शिक्षा अनुदान",
+  "Pension, health insurance, disability cover, death benefit": "पेंशन, स्वास्थ्य बीमा, विकलांगता कवर, मृत्यु लाभ",
+  "Pension, accident insurance, health cover, scholarship": "पेंशन, दुर्घटना बीमा, स्वास्थ्य कवर, छात्रवृत्ति",
+  "Collateral-free working capital loan up to ₹50,000 for street vendors": "स्ट्रीट वेंडरों के लिए ₹50,000 तक का संपार्श्विक-मुक्त कार्यशील पूंजी ऋण",
+  "Guaranteed pension ₹1,000-5,000/month after age 60": "60 वर्ष की आयु के बाद ₹1,000-5,000/माह गारंटीकृत पेंशन",
+  "Micro loan up to ₹50,000 for small business": "लघु व्यवसाय के लिए ₹50,000 तक का सूक्ष्म ऋण",
+  "Cash assistance for institutional delivery": "संस्थागत प्रसव के लिए नकद सहायता",
+  "₹5,000 cash incentive for first live birth": "पहले जीवित जन्म के लिए ₹5,000 नकद प्रोत्साहन",
+  "Digital health ID for seamless healthcare access": "निर्बाध स्वास्थ्य सेवा पहुंच के लिए डिजिटल स्वास्थ्य आईडी",
+  "Pension account for minors, converts to regular NPS at 18": "नाबालिगों के लिए पेंशन खाता, 18 वर्ष पर नियमित NPS में परिवर्तित",
+  "Free skill training with certification and placement support": "प्रमाणन और प्लेसमेंट समर्थन के साथ मुफ्त कौशल प्रशिक्षण",
+  "Bank loan ₹10 lakh - ₹1 crore for SC/ST/Women entrepreneurs": "SC/ST/महिला उद्यमियों के लिए ₹10 लाख - ₹1 करोड़ बैंक ऋण",
+  "E-commerce platform for street vendors to sell online": "स्ट्रीट वेंडरों के लिए ऑनलाइन बिक्री हेतु ई-कॉमर्स प्लेटफॉर्म",
 
   // Loan product names
   "PM SVANidhi": "पीएम स्वनिधि",
@@ -2327,6 +2912,60 @@ function computeExpenseProfile(transactions) {
   };
 }
 
+function generateFinancialTips(profile, expenseProfile) {
+  const tips = [];
+  
+  if (!profile && !expenseProfile) return tips;
+
+  // Income volatility tip
+  if (profile && profile.variance && profile.averageDaily > 0) {
+    const cv = Math.sqrt(profile.variance) / profile.averageDaily;
+    if (cv > 0.5) {
+      tips.push(`<strong>${t("High Income Volatility")}</strong>: ${t("Your daily income varies by more than 50%. Consider building a 2-month expense buffer.")}`);
+    }
+  }
+
+  // Expense ratio tip
+  if (profile && expenseProfile && profile.totalIncome > 0) {
+    const expenseRatio = (expenseProfile.totalExpenses / profile.totalIncome) * 100;
+    if (expenseRatio > 90) {
+      tips.push(`<strong>${t("High Expense Ratio")}</strong>: ${t("You're spending over 90% of your income. Review top categories for savings.")}`);
+    } else if (expenseRatio > 70) {
+      tips.push(`<strong>${t("Moderate Expense Ratio")}</strong>: ${t("Spending 70-90% of income leaves little buffer. Try the 50/30/20 rule: needs/wants/savings.")}`);
+    }
+  }
+
+  // Top category dominance
+  if (expenseProfile && expenseProfile.topCategoryPct > 40) {
+    tips.push(`<strong>${t("Category Dominance")}</strong>: ${t("Over 40% of expenses go to")} ${expenseProfile.topCategory}. ${t("Look for cheaper alternatives or set a budget.")}`);
+  }
+
+  // Low savings rate
+  if (profile && profile.savings && profile.savings.monthlySaving < 500) {
+    tips.push(`<strong>${t("Low Monthly Savings")}</strong>: ${t("Projected monthly savings under ₹500. Even ₹50/day on good days builds emergency fund.")}`);
+  }
+
+  // No budgets set
+  if (expenseProfile && Object.keys(state.budgets || {}).length === 0) {
+    tips.push(`<strong>${t("No Budgets Set")}</strong>: ${t("Set monthly budgets per category to track spending. Start with your top 3 categories.")}`);
+  }
+
+  // Savings goal tip
+  if (state.savingsGoals && state.savingsGoals.length === 0 && profile && profile.savings) {
+    tips.push(`<strong>${t("Set a Savings Goal")}</strong>: ${t("Create a goal (e.g., \"Emergency Fund ₹10,000\") to stay motivated. The app will calculate your daily target.")}`);
+  }
+
+  // Good days utilization
+  if (profile && profile.goodDays > 0 && profile.badDays > 0) {
+    const goodDayRatio = profile.goodDays / (profile.goodDays + profile.badDays);
+    if (goodDayRatio > 0.6) {
+      tips.push(`<strong>${t("Good Day Advantage")}</strong>: ${t("You have more good days than bad. Save aggressively on good days to cover bad ones automatically.")}`);
+    }
+  }
+
+  return tips.slice(0, 3); // Limit to 3 tips
+}
+
 function getAllowedUrl(scheme) {
   const candidate = scheme.verifiedUrl || ALLOWED_SCHEME_URLS[scheme.id];
   if (!candidate) return null;
@@ -2360,7 +2999,9 @@ function normalizeScheme(scheme) {
       documents: scheme.documents || [],
       steps: scheme.steps || [],
       icon: scheme.icon || "shield",
-      color: scheme.color || "blue"
+      color: scheme.color || "blue",
+      deadline: scheme.deadline || null,
+      reminderDays: scheme.reminderDays || [30, 7, 1]
     };
   }
   return {
@@ -2379,7 +3020,9 @@ function normalizeScheme(scheme) {
     documents: scheme.documents || [],
     steps: scheme.steps || [],
     icon: scheme.icon || "shield",
-    color: scheme.color || "blue"
+    color: scheme.color || "blue",
+    deadline: scheme.deadline || null,
+    reminderDays: scheme.reminderDays || [30, 7, 1]
   };
 }
 
@@ -3686,14 +4329,15 @@ function renderDashboard(activeView = "Dashboard") {
 
   // Card 3 (optional): Expense Summary
   const expenseProfile = state.expenseProfile;
-  const expenseCard = expenseProfile ? `
+  const expenseCard = `
     <article class="google-card card-expense">
       <div class="google-card-header">
         ${ICONS.wallet}
         <span>${t("Expense Summary")}</span>
       </div>
-      <h3 class="google-card-title">${t("Spending breakdown from your statement")}</h3>
+      <h3 class="google-card-title">${expenseProfile ? t("Spending breakdown from your statement") : t("Upload a statement to see spending breakdown")}</h3>
       <div class="google-card-body">
+        ${expenseProfile ? `
         <div class="stats-grid-google">
           <div class="stat-item-google">
             <span>${t("Total Expenses")}</span>
@@ -3724,9 +4368,10 @@ function renderDashboard(activeView = "Dashboard") {
             }).join("")}
           </div>
         </div>
+        ` : `<p class="copy">${t("Upload a bank statement to get automatic expense categorization and budgeting insights.")}</p>`}
       </div>
     </article>
-  ` : "";
+  `;
 
   // Card 4: Loan Eligibility
   const loans = checkLoanEligibility(state.details, state.profile);
@@ -3800,6 +4445,125 @@ function renderDashboard(activeView = "Dashboard") {
     </article>
   `;
 
+  // Card: Deadline Calendar
+  const deadlineCalendarCard = (() => {
+    const allSchemes = [...FALLBACK_SCHEMES, ...state.schemesDb];
+    const now = new Date();
+    const upcomingDeadlines = allSchemes
+      .filter(s => s.deadline)
+      .map(s => {
+        const deadline = new Date(s.deadline);
+        const daysLeft = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+        return { ...s, deadlineDate: deadline, daysLeft };
+      })
+      .filter(s => s.daysLeft >= 0)
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .slice(0, 6);
+
+    return `
+      <article class="google-card card-deadlines">
+        <div class="google-card-header">
+          ${ICONS.shield}
+          <span>${t("Application Deadlines")}</span>
+        </div>
+        <h3 class="google-card-title">${upcomingDeadlines.length > 0 ? t("Upcoming scheme application deadlines") : t("No upcoming deadlines right now")}</h3>
+        <div class="google-card-body">
+          ${upcomingDeadlines.length > 0 ? `
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+            ${upcomingDeadlines.map(s => {
+              const isUrgent = s.daysLeft <= 7;
+              const isWarning = s.daysLeft <= 30;
+              return `
+                <li style="padding:10px;background:var(--surface);border-radius:8px;border-left:3px solid ${isUrgent ? 'var(--red)' : isWarning ? 'var(--accent)' : 'var(--green)'};font-size:0.85rem;line-height:1.5;display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <strong>${escapeHtml(t(s.shortName || s.name))}</strong>
+                    <span style="margin-left:8px;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;background:${isUrgent ? 'var(--red-soft)' : isWarning ? 'var(--accent-soft)' : 'var(--green-soft)'};color:${isUrgent ? 'var(--red)' : isWarning ? 'var(--accent)' : 'var(--green)'}">${s.daysLeft} ${t("days left")}</span>
+                  </div>
+                  <span style="color:var(--muted);font-size:0.75rem">${s.deadlineDate.toLocaleDateString("en-IN")}</span>
+                </li>
+              `;
+            }).join("")}
+          </ul>
+          ` : `<p class="copy">${t("Check back later for scheme application deadlines.")}</p>`}
+          <p class="copy" style="margin-top:12px;font-size:0.75rem">${t("Deadlines are indicative. Verify on official portals.")}</p>
+        </div>
+      </article>
+    `;
+  })();
+
+  // Card 7: Financial Literacy Tips
+  const financialTipsCard = (expenseProfile && state.profile) ? (() => {
+    const tips = generateFinancialTips(state.profile, expenseProfile);
+    if (tips.length === 0) return "";
+    return `
+      <article class="google-card card-tips">
+        <div class="google-card-header">
+          ${ICONS.shield}
+          <span>${t("Smart Tips")}</span>
+        </div>
+        <h3 class="google-card-title">${t("Personalized financial guidance")}</h3>
+        <div class="google-card-body">
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+            ${tips.slice(0, 3).map(tip => `
+              <li style="padding:10px;background:var(--surface);border-radius:8px;border-left:3px solid var(--accent);font-size:0.85rem;line-height:1.5">
+                ${tip}
+              </li>
+            `).join("")}
+          </ul>
+        </div>
+      </article>
+    `;
+  })() : "";
+
+  // Card 8: Savings Goals
+  const savingsGoalsCard = state.savingsGoals && state.savingsGoals.length > 0 ? (() => {
+    const goals = state.savingsGoals.filter(g => g.isActive !== false);
+    if (goals.length === 0) return "";
+    return `
+      <article class="google-card card-goals">
+        <div class="google-card-header">
+          ${ICONS.wallet}
+          <span>${t("Savings Goals")}</span>
+        </div>
+        <h3 class="google-card-title">${t("Track your saving targets")}</h3>
+        <div class="google-card-body">
+          ${goals.slice(0, 3).map(goal => {
+            const progress = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
+            const daysLeft = goal.targetDate ? Math.ceil((new Date(goal.targetDate) - new Date()) / (1000*60*60*24)) : null;
+            return `
+              <div style="margin-bottom:16px;padding:12px;background:var(--surface);border-radius:8px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <strong>${escapeHtml(goal.name)}</strong>
+                  <span style="font-size:0.82rem;color:var(--muted)">${daysLeft !== null ? daysLeft + " " + t("days left") : ""}</span>
+                </div>
+                <div style="height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:6px">
+                  <div style="height:100%;background:var(--accent);border-radius:4px;width:${progress}%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--muted)">
+                  <span>${formatMoney(goal.currentAmount)} / ${formatMoney(goal.targetAmount)}</span>
+                  <span>${progress.toFixed(0)}%</span>
+                </div>
+              </div>
+            `;
+          }).join("")}
+          <button class="primary-btn" style="width:100%;margin-top:8px" data-add-goal>${ICONS.plus} ${t("Add Goal")}</button>
+        </div>
+      </article>
+    `;
+  })() : `
+      <article class="google-card card-goals">
+        <div class="google-card-header">
+          ${ICONS.wallet}
+          <span>${t("Savings Goals")}</span>
+        </div>
+        <h3 class="google-card-title">${t("Set a saving target")}</h3>
+        <div class="google-card-body">
+          <p class="copy" style="margin-bottom:12px">${t("Create a goal to save for emergencies, festivals, or big purchases.")}</p>
+          <button class="primary-btn" style="width:100%" data-add-goal>${ICONS.plus} ${t("Create First Goal")}</button>
+        </div>
+      </article>
+    `;
+
   // Card 4: Portable Summary Export
   const summaryCard = `
     <article class="google-card card-summary">
@@ -3849,6 +4613,9 @@ function renderDashboard(activeView = "Dashboard") {
         ${documentCard}
         ${schemesCard}
         ${summaryCard}
+        ${deadlineCalendarCard}
+        ${financialTipsCard}
+        ${savingsGoalsCard}
       </div>
     `;
   }
@@ -3856,20 +4623,29 @@ function renderDashboard(activeView = "Dashboard") {
   const activeScheme = state.guidanceSchemeId ? (state.schemesDb.find(s => s.id === state.guidanceSchemeId) || FALLBACK_SCHEMES.find(s => s.id === state.guidanceSchemeId)) : null;
 
   const onboardingSteps = [
-    { title: t("Welcome to Kaam Card"), text: t("This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.") },
-    { title: t("Income Analytics"), text: t("Your daily earnings chart shows good days and bad days, helping you understand your income patterns.") },
-    { title: t("Savings & Schemes"), text: t("Use the smart savings suggestion and check which government schemes you qualify for.") },
-    { title: t("Upload Data"), text: t("Tap Upload to add more statements or manual entries anytime.") }
+    { title: t("Welcome to Kaam Card"), text: t("This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches."), target: null },
+    { title: t("Income Analytics"), text: t("Your daily earnings chart shows good days and bad days, helping you understand your income patterns."), target: ".card-analytics" },
+    { title: t("Smart Savings"), text: t("The savings card shows how much to save on good days to cover low-income days automatically."), target: ".card-savings" },
+    { title: t("Expense Summary"), text: t("Track your spending by category and set budgets to stay in control."), target: ".card-expense" },
+    { title: t("Welfare Schemes"), text: t("Check which government schemes you qualify for based on your profile and income."), target: ".card-schemes" },
+    { title: t("Share Summary"), text: t("Generate a portable summary of your verified profile to share with employers or schemes."), target: ".card-summary" },
+    { title: t("Application Deadlines"), text: t("Keep track of upcoming scheme deadlines so you never miss an application window."), target: ".card-deadlines" },
+    { title: t("Savings Goals"), text: t("Set personal saving targets for emergencies, festivals, or big purchases."), target: ".card-goals" }
   ];
-  const onboardingTour = !state.onboardingDone ? `
+  const onboardingTour = !state.onboardingDone && activeView === "Dashboard" ? `
     <div class="onboarding-overlay" id="onboarding-tour">
-      <div class="onboarding-card">
+      <div class="onboarding-spotlight" id="onboarding-spotlight"></div>
+      <div class="onboarding-card" id="onboarding-card">
         <div class="onboarding-step-content">
           <h3 class="onboarding-step-title">${onboardingSteps[0].title}</h3>
           <p class="onboarding-step-text">${onboardingSteps[0].text}</p>
         </div>
         <div class="onboarding-progress">
           <span class="onboarding-dot active"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
           <span class="onboarding-dot"></span>
           <span class="onboarding-dot"></span>
           <span class="onboarding-dot"></span>
@@ -3915,31 +4691,106 @@ function renderDashboard(activeView = "Dashboard") {
     addAuditLog("Shareable summary viewed.");
   });
 
-  // Bind onboarding tour
+  // Bind onboarding tour with coach marks
   const onboardingOverlay = document.querySelector("#onboarding-tour");
   if (onboardingOverlay) {
     let onboardingIndex = 0;
+    let prevOverflow;
+    function lockScroll() { prevOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; }
+    function unlockScroll() { document.body.style.overflow = prevOverflow || ""; }
+    lockScroll();
     const steps = [
-      { title: t("Welcome to Kaam Card"), text: t("This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches.") },
-      { title: t("Income Analytics"), text: t("Your daily earnings chart shows good days and bad days, helping you understand your income patterns.") },
-      { title: t("Savings & Schemes"), text: t("Use the smart savings suggestion and check which government schemes you qualify for.") },
-      { title: t("Upload Data"), text: t("Tap Upload to add more statements or manual entries anytime.") }
+      { title: t("Welcome to Kaam Card"), text: t("This is your dashboard. Here you'll see your income analysis, savings recommendations, and welfare scheme matches."), target: null },
+      { title: t("Income Analytics"), text: t("Your daily earnings chart shows good days and bad days, helping you understand your income patterns."), target: ".card-analytics" },
+      { title: t("Smart Savings"), text: t("The savings card shows how much to save on good days to cover low-income days automatically."), target: ".card-savings" },
+      { title: t("Expense Summary"), text: t("Track your spending by category and set budgets to stay in control."), target: ".card-expense" },
+      { title: t("Welfare Schemes"), text: t("Check which government schemes you qualify for based on your profile and income."), target: ".card-schemes" },
+      { title: t("Share Summary"), text: t("Generate a portable summary of your verified profile to share with employers or schemes."), target: ".card-summary" },
+      { title: t("Application Deadlines"), text: t("Keep track of upcoming scheme deadlines so you never miss an application window."), target: ".card-deadlines" },
+      { title: t("Savings Goals"), text: t("Set personal saving targets for emergencies, festivals, or big purchases."), target: ".card-goals" }
     ];
     const titleEl = onboardingOverlay.querySelector(".onboarding-step-title");
     const textEl = onboardingOverlay.querySelector(".onboarding-step-text");
     const dots = onboardingOverlay.querySelectorAll(".onboarding-dot");
+    const spotlight = onboardingOverlay.querySelector("#onboarding-spotlight");
+    const card = onboardingOverlay.querySelector("#onboarding-card");
+
+    function positionSpotlight(targetSelector) {
+      if (!targetSelector || !spotlight) return;
+      const target = document.querySelector(targetSelector);
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      spotlight.style.top = `${rect.top - 8}px`;
+      spotlight.style.left = `${rect.left - 8}px`;
+      spotlight.style.width = `${rect.width + 16}px`;
+      spotlight.style.height = `${rect.height + 16}px`;
+      spotlight.style.opacity = "1";
+      spotlight.style.pointerEvents = "none";
+    }
+
+    function positionCard(step) {
+      const target = document.querySelector(step.target);
+      if (!target) return;
+      const r = target.getBoundingClientRect();
+      const cw = card.offsetWidth, ch = card.offsetHeight;
+      const pad = 16;
+      const maxW = innerWidth - cw - pad;
+      const maxH = innerHeight - ch - pad;
+      let top = r.bottom + 12;
+      if (top + ch > innerHeight - pad) {
+        top = r.top - ch - 12 >= pad && r.top - ch - 12 <= maxH
+          ? r.top - ch - 12
+          : (innerHeight - ch) / 2;
+      }
+      top = Math.max(pad, Math.min(top, maxH));
+      let left = r.left + r.width / 2 - cw / 2;
+      left = Math.max(pad, Math.min(left, maxW));
+      card.style.transform = "none";
+      card.style.top = `${top}px`;
+      card.style.left = `${left}px`;
+      if (spotlight) positionSpotlight(step.target);
+    }
+
+    function isFixed(el) {
+      return el && getComputedStyle(el).position === "fixed";
+    }
 
     function updateOnboardingStep(index) {
-      titleEl.textContent = steps[index].title;
-      textEl.textContent = steps[index].text;
+      const step = steps[index];
+      titleEl.textContent = step.title;
+      textEl.textContent = step.text;
       dots.forEach((dot, i) => dot.classList.toggle("active", i === index));
+
+      if (!card) return;
+
+      if (spotlight && !step.target) spotlight.style.opacity = "0";
+
+      if (step.target) {
+        const el = document.querySelector(step.target);
+        if (el && !isFixed(el)) {
+          const html = document.documentElement;
+          const prev = html.style.scrollBehavior;
+          html.style.scrollBehavior = "auto";
+          el.scrollIntoView({ block: "center", inline: "nearest" });
+          html.style.scrollBehavior = prev;
+        }
+        positionCard(step);
+      } else {
+        card.style.top = "50%";
+        card.style.left = "50%";
+        card.style.transform = "translate(-50%, -50%)";
+      }
     }
+
+    // Initial position
+    updateOnboardingStep(0);
 
     onboardingOverlay.querySelector("[data-onboarding-next]").addEventListener("click", () => {
       onboardingIndex++;
       if (onboardingIndex >= steps.length) {
         state.onboardingDone = true;
         saveSession();
+        unlockScroll();
         onboardingOverlay.remove();
       } else {
         updateOnboardingStep(onboardingIndex);
@@ -3949,6 +4800,7 @@ function renderDashboard(activeView = "Dashboard") {
     onboardingOverlay.querySelector("[data-onboarding-skip]").addEventListener("click", () => {
       state.onboardingDone = true;
       saveSession();
+      unlockScroll();
       onboardingOverlay.remove();
     });
   }
@@ -3960,6 +4812,29 @@ function renderDashboard(activeView = "Dashboard") {
       state.documents[doc] = checkbox.checked;
       addAuditLog(`Document ${checkbox.checked ? "marked ready" : "unmarked"}: ${doc}`);
       saveSession();
+      render();
+    });
+  });
+
+  // Bind Add Goal buttons
+  document.querySelectorAll("[data-add-goal]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = prompt(t("Goal name (e.g., Emergency Fund, Festival, Vehicle):"));
+      if (!name) return;
+      const target = parseInt(prompt(t("Target amount (₹):")), 10);
+      if (!target || target <= 0) return;
+      const dateStr = prompt(t("Target date (YYYY-MM-DD, optional):"));
+      state.savingsGoals.push({
+        id: "goal_" + Date.now(),
+        name: name.trim(),
+        targetAmount: target,
+        currentAmount: 0,
+        targetDate: dateStr || null,
+        isActive: true,
+        createdAt: Date.now()
+      });
+      saveSession();
+      addAuditLog(`Created savings goal: ${name} for ₹${target}`);
       render();
     });
   });
@@ -4098,6 +4973,7 @@ function toggleMoreMenu() {
     <div class="more-menu">
       ${state.profile ? `<button type="button" class="more-menu-item" data-more-action="share">${ICONS.share}<span>${t("Share Summary")}</span></button>` : ""}
       ${state.profile ? `<button type="button" class="more-menu-item" data-more-action="export">${ICONS.file}<span>${t("Export Card")}</span></button>` : ""}
+      ${state.profile ? `<button type="button" class="more-menu-item" data-more-action="qr">${ICONS.share}<span>${t("Show QR Code")}</span></button>` : ""}
       ${state.session ? `<button type="button" class="more-menu-item more-menu-danger" data-more-action="purge">${ICONS.alert}<span>${t("Purge Session")}</span></button>` : ""}
     </div>
   `;
@@ -4115,8 +4991,73 @@ function toggleMoreMenu() {
       render();
     } else if (action === "export") {
       exportWorkerCard();
+    } else if (action === "qr") {
+      showQRCode();
     } else if (action === "purge") {
       purgeSession();
+    }
+  });
+}
+
+function showQRCode() {
+  const profile = state.profile;
+  const phone = state.session?.phone || "demo";
+  const workerName = `${t("Worker ")}${phone.slice(-4)}`;
+  
+  const cardData = {
+    v: 1,
+    n: workerName,
+    p: phone.slice(-4),
+    i: profile?.averageDaily || 0,
+    m: profile?.monthlyIncomeEstimate || 0,
+    g: profile?.goodDays || 0,
+    b: profile?.badDays || 0,
+    s: profile?.savings?.monthlySaving || 0,
+    t: Date.now()
+  };
+  
+  const jsonStr = JSON.stringify(cardData);
+  const encoded = btoa(jsonStr);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(encoded)}`;
+  
+  const modalHtml = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+      <section class="share-card" style="max-width:320px;text-align:center">
+        <h2 id="qr-title">${t("Worker Card QR Code")}</h2>
+        <p class="copy">${t("Scan to share your Kaam Card profile")}</p>
+        <img src="${qrUrl}" alt="${t("QR Code")}" style="width:256px;height:256px;border-radius:12px;background:#fff;margin:16px 0;box-shadow:var(--shadow)">
+        <p style="font-size:0.75rem;color:var(--muted);margin-bottom:8px">${t("Worker:")} ${escapeHtml(workerName)}</p>
+        <p style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">${t("Expires in 24 hours")}</p>
+        <div class="share-actions">
+          <button class="secondary-btn" type="button" data-close-qr>${t("Close")}</button>
+          <button class="primary-btn" type="button" data-download-qr>${ICONS.file} ${t("Download QR")}</button>
+        </div>
+      </section>
+    </div>
+  `;
+  
+  const existing = document.querySelector(".modal-backdrop");
+  if (existing) existing.remove();
+  
+  document.body.insertAdjacentHTML("beforeend", modalHtml);
+  
+  document.querySelector("[data-close-qr]")?.addEventListener("click", () => {
+    document.querySelector(".modal-backdrop")?.remove();
+  });
+  
+  document.querySelector("[data-download-qr]")?.addEventListener("click", async () => {
+    try {
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kaam-card-qr-${phone.slice(-4)}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addAuditLog("Downloaded worker card QR code.");
+    } catch (error) {
+      console.error("QR download failed:", error);
     }
   });
 }
@@ -4136,6 +5077,7 @@ function shareSummaryText() {
 }
 
 function renderShareModal() {
+  const canShare = navigator.share && navigator.canShare && navigator.canShare({ text: shareSummaryText() });
   return `
     <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="share-title">
       <section class="share-card">
@@ -4144,7 +5086,9 @@ function renderShareModal() {
         <textarea class="share-text" readonly>${escapeHtml(shareSummaryText())}</textarea>
         <div class="share-actions">
           <button class="secondary-btn" type="button" data-close-share>${t("Close")}</button>
-          <button class="secondary-btn" type="button" data-export-card>${ICONS.file} ${t("Export Card")}</button>
+          <button class="secondary-btn" type="button" data-export-card>${ICONS.file} ${t("Export Card (HTML)")}</button>
+          <button class="secondary-btn" type="button" data-export-pdf>${ICONS.share} ${t("Save as PDF")}</button>
+          ${canShare ? `<button class="secondary-btn" type="button" data-native-share>${ICONS.share} ${t("Share via App")}</button>` : ''}
           <button class="primary-btn" type="button" data-copy-share>${ICONS.copy} ${state.copied ? t("Copied") : t("Copy")}</button>
         </div>
         <div class="danger-zone-section">
@@ -4186,10 +5130,127 @@ function bindShareModal() {
     exportCard.addEventListener("click", () => exportWorkerCard());
   }
 
+  const exportPdf = document.querySelector("[data-export-pdf]");
+  if (exportPdf) {
+    exportPdf.addEventListener("click", () => {
+      exportWorkerCard(); // Opens printable view, user can save as PDF via browser print
+      addAuditLog("Exported worker card as PDF.");
+    });
+  }
+
+  const nativeShare = document.querySelector("[data-native-share]");
+  if (nativeShare) {
+    nativeShare.addEventListener("click", async () => {
+      const text = shareSummaryText();
+      try {
+        await navigator.share({
+          title: t("Kaam Card Summary"),
+          text: text
+        });
+        addAuditLog("Shared worker card via native share.");
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.warn("Share failed:", error);
+        }
+      }
+    });
+  }
+
   bindPurgeSession();
 }
 
 function exportWorkerCard() {
+  const profile = state.profile;
+  const eligible = state.matches.filter((item) => item.eligible).slice(0, 5);
+  const phone = state.session?.phone || "demo";
+  const workerName = `${t("Worker ")}${phone.slice(-4)}`;
+
+  const cardHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaam Card - ${escapeHtml(workerName)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F9F8F6; display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); max-width: 480px; width: 100%; overflow: hidden; }
+  .card-header { background: linear-gradient(135deg, #C85A32, #B04E2D); color: #fff; padding: 24px; text-align: center; }
+  .card-header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+  .card-header p { font-size: 0.85rem; opacity: 0.9; }
+  .card-body { padding: 20px 24px; }
+  .section { margin-bottom: 16px; }
+  .section:last-child { margin-bottom: 0; }
+  .section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #8C857B; margin-bottom: 8px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat { background: #F0EEE9; border-radius: 8px; padding: 12px; }
+  .stat-label { font-size: 0.72rem; color: #8C857B; font-weight: 700; }
+  .stat-value { font-size: 1.1rem; font-weight: 800; color: #1A1A1A; }
+  .savings-box { background: linear-gradient(135deg, #F5E8E2, #F9F8F6); border: 1px solid #E8E5DE; border-radius: 10px; padding: 14px; text-align: center; }
+  .savings-amount { font-size: 1.3rem; font-weight: 800; color: #C85A32; }
+  .savings-label { font-size: 0.8rem; color: #8C857B; margin-top: 4px; }
+  .scheme-list { list-style: none; }
+  .scheme-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #E8E5DE; font-size: 0.85rem; }
+  .scheme-item:last-child { border-bottom: none; }
+  .scheme-dot { width: 8px; height: 8px; border-radius: 50%; background: #C85A32; flex-shrink: 0; }
+  .card-footer { background: #F0EEE9; padding: 16px 24px; text-align: center; font-size: 0.75rem; color: #8C857B; border-top: 1px solid #E8E5DE; }
+  @media print { body { background: none; padding: 0; } .card { box-shadow: none; border: 1px solid #D9D5CC; } }
+  .no-print { display: block; text-align: center; margin: 16px 0; }
+  @media print { .no-print { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <h1>${t("Kaam Card")}</h1>
+    <p>${escapeHtml(workerName)}${t(" | +91 ")}${escapeHtml(phone)}</p>
+  </div>
+  <div class="card-body">
+    <div class="section">
+      <div class="section-title">${t("Income Profile")}</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">${t("Daily Average")}</div><div class="stat-value">${formatMoney(profile.averageDaily)}</div></div>
+        <div class="stat"><div class="stat-label">${t("Monthly Estimate")}</div><div class="stat-value">${formatMoney(profile.monthlyIncomeEstimate)}</div></div>
+        <div class="stat"><div class="stat-label">${t("Good Days")}</div><div class="stat-value">${profile.goodDays}</div></div>
+        <div class="stat"><div class="stat-label">${t("Low Days")}</div><div class="stat-value">${profile.badDays}</div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">${t("Savings Recommendation")}</div>
+      <div class="savings-box">
+        <div class="savings-amount">${formatMoney(profile.savings.monthlySaving)}${t("/month")}</div>
+        <div class="savings-label">${t("Save ")}${formatMoney(profile.savings.savePerGoodDay)}${t(" on good days (above ")}${formatMoney(profile.goodThreshold)}${t(")")}</div>
+      </div>
+    </div>
+    ${eligible.length > 0 ? `
+    <div class="section">
+      <div class="section-title">${t("Matched Welfare Schemes")}</div>
+      <ul class="scheme-list">
+        ${eligible.map((s) => `<li class="scheme-item"><span class="scheme-dot"></span><strong>${escapeHtml(t(s.shortName))}</strong> &mdash; ${escapeHtml(t(s.benefit || s.description || ""))}</li>`).join("")}
+      </ul>
+    </div>` : ""}
+  </div>
+  <div class="card-footer">
+    ${t("Generated by Kaam Card | Eligibility is simplified, verify on official portals")}
+  </div>
+</div>
+<div class="no-print">
+  <button onclick="window.print()" class="primary-btn" style="padding:12px 24px;border-radius:30px;border:none;background:#C85A32;color:#fff;font-weight:500;cursor:pointer">${ICONS.file} ${t("Download PDF / Print")}</button>
+  <p class="copy" style="margin-top:8px;font-size:0.8rem">${t("Use your browser's Print to PDF option to save")}</p>
+</div>
+</body>
+</html>`;
+
+  const cardWindow = window.open("", "_blank");
+  if (cardWindow) {
+    cardWindow.document.write(cardHtml);
+    cardWindow.document.close();
+    addAuditLog("Exported worker card to printable view.");
+  }
+}
+
+function exportWorkerCardPDF() {
+  // Generate the same HTML content but trigger print directly
   const profile = state.profile;
   const eligible = state.matches.filter((item) => item.eligible).slice(0, 5);
   const phone = state.session?.phone || "demo";
@@ -4262,6 +5323,9 @@ function exportWorkerCard() {
     ${t("Generated by Kaam Card | Eligibility is simplified, verify on official portals")}
   </div>
 </div>
+<script>
+  window.onload = function() { window.print(); };
+<\/script>
 </body>
 </html>`;
 
@@ -4269,7 +5333,7 @@ function exportWorkerCard() {
   if (cardWindow) {
     cardWindow.document.write(cardHtml);
     cardWindow.document.close();
-    addAuditLog("Exported worker card to printable view.");
+    addAuditLog("Exported worker card as PDF.");
   }
 }
 
