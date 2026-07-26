@@ -3811,12 +3811,6 @@ cite span {
   50% { opacity: 0.5; }
 }
 
-/* Focus visible for accessibility */
-:focus-visible {
-  outline: 3px solid var(--accent) !important;
-  outline-offset: 2px !important;
-}
-
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -3861,12 +3855,6 @@ cite span {
   textarea {
     min-height: 48px;
   }
-}
-
-/* High contrast focus indicators */
-*:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
 }
 
 :root[data-high-contrast="true"] *:focus-visible {

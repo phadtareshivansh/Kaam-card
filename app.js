@@ -5624,6 +5624,7 @@ function bindPurgeSession() {
 }
 
 function logout() {
+  API.purgeSession().catch(() => {});
   state.session = null;
   state.profile = null;
   state.expenseProfile = null;
