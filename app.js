@@ -5624,6 +5624,9 @@ function bindPurgeSession() {
 }
 
 function logout() {
+  API.setToken(null);
+  try { localStorage.removeItem("kaam-card-api-session"); } catch (e) {}
+  try { localStorage.removeItem("kaam-card-api-profile"); } catch (e) {}
   state.session = null;
   state.profile = null;
   state.expenseProfile = null;
