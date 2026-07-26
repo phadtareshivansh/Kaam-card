@@ -1,5 +1,5 @@
-const CACHE_NAME = "kaam-card-v2";
-const OFFLINE_CACHE = "kaam-card-offline-v1";
+const CACHE_NAME = "kaam-card-v3";
+const OFFLINE_CACHE = "kaam-card-offline-v2";
 
 const STATIC_ASSETS = [
   "/",
