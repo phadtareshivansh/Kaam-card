@@ -3,7 +3,7 @@ const THEME_STORAGE_KEY = "kaam-card-theme";
 const SESSION_STORAGE_KEY = "kaam-card-session";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-const BAD_DAY_THRESHOLD_RATIO = 0.5;
+const BAD_DAY_THRESHOLD_RATIO = 0.75;
 const SAVINGS_RATE = 0.45;
 const MIN_SAVINGS_AMOUNT = 20;
 const SAVINGS_ROUNDING = 10;
@@ -2646,7 +2646,7 @@ function speakBtn(textKey, lang) {
 }
 
 function formatMoney(value) {
-  return `Rs ${Math.round(value).toLocaleString("en-IN")}`;
+  return `₹${Math.round(value).toLocaleString("en-IN")}`;
 }
 
 function formatNumber(value, digits = 0) {
@@ -2825,7 +2825,7 @@ function computeProfile(transactions) {
     dailySeries.reduce((sum, day) => sum + Math.pow(day.amount - averageDaily, 2), 0) / periodDays;
   const badThreshold = averageDaily * BAD_DAY_THRESHOLD_RATIO;
   const goodThreshold = averageDaily;
-  const goodDays = dailySeries.filter((day) => day.amount >= goodThreshold && day.amount > 0);
+  const goodDays = dailySeries.filter((day) => day.amount > goodThreshold);
   const badDays = dailySeries.filter((day) => day.amount <= badThreshold);
   const avgBadDayIncome = badDays.length
     ? badDays.reduce((sum, day) => sum + day.amount, 0) / badDays.length
@@ -2864,7 +2864,7 @@ function computeProfile(transactions) {
 const EXPENSE_CATEGORIES = {
   "Food & Dining": ["swiggy", "zomato", "food", "restaurant", "hotel", "cafe", "eat", "dine", "pizza", "burger", "mcdonald", "domino", "snacks", "chai", "tiffin", "mess", "bakery", "cloud kitchen"],
   "Transport": ["uber", "ola", "fuel", "petrol", "diesel", "metro", "bus", "auto", "rickshaw", "cab", "taxi", "toll", "rapido", "parking", "indrive", "blusmart"],
-  "Mobile & Bills": ["recharge", "airtel", "jio", "vi", "vodafone", "idea", "broadband", "wifi", "electricity", "bill", "bsnl", "dth", "postpaid", "prepaid"],
+  "Mobile & Bills": ["recharge", "airtel", "jio", "vodafone", "idea", "broadband", "wifi", "electricity", "bill", "bsnl", "dth", "postpaid", "prepaid"],
   "Groceries": ["grocery", "supermarket", "bigbasket", "zepto", "blinkit", "fresh", "vegetable", "milk", "dairy", "kirana", "instamart", "dunzo", "jiomart", "greenmart"],
   "Healthcare": ["hospital", "doctor", "clinic", "medicine", "pharmacy", "medical", "health", "diagnostic", "dentist", "eye", "lab", "chemist", "ayurveda"],
   "Entertainment": ["netflix", "prime", "hotstar", "movie", "theatre", "gaming", "spotify", "youtube", "music", "ott", "ticket", "sports"],
@@ -6098,6 +6098,39 @@ window.addEventListener("unhandledrejection", function (event) {
   console.error("Unhandled promise rejection:", event.reason);
 });
 
+let introDone = false;
+
+function hideIntroThenRender() {
+  if (introDone) return;
+  introDone = true;
+  const overlay = document.getElementById("intro-overlay");
+  const video = document.getElementById("intro-video");
+  if (video) video.pause();
+  if (overlay) {
+    overlay.classList.add("intro-hidden");
+    const done = () => {
+      overlay.removeEventListener("transitionend", done);
+      overlay.remove();
+      render();
+    };
+    overlay.addEventListener("transitionend", done, { once: true });
+    setTimeout(done, 800);
+  } else {
+    render();
+  }
+}
+
+const introOverlay = document.getElementById("intro-overlay");
+const introVideo = document.getElementById("intro-video");
+if (introVideo) {
+  introVideo.addEventListener("ended", hideIntroThenRender);
+  introVideo.addEventListener("error", hideIntroThenRender);
+  introVideo.play().catch(() => {});
+}
+if (introOverlay) {
+  introOverlay.querySelector("#intro-skip-btn")?.addEventListener("click", hideIntroThenRender);
+}
+
 applyTheme(state.theme);
 initInteractiveGridPattern();
 loadSchemesDb().finally(async () => {
@@ -6113,7 +6146,6 @@ loadSchemesDb().finally(async () => {
         state.details = data.profile.details || state.details;
       }
       state.route = state.profile ? "dashboard" : "upload";
-      render();
       return;
     } catch {
       API.setToken(null);
@@ -6122,5 +6154,7 @@ loadSchemesDb().finally(async () => {
   if (loadSession()) {
     state.route = state.profile ? "dashboard" : "upload";
   }
-  render();
 });
+
+// Fallback: auto-dismiss intro after 15s if video never ends
+setTimeout(hideIntroThenRender, 15000);
