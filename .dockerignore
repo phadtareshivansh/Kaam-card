@@ -1,0 +1,7 @@
+.git
+.gitignore
+.DS_Store
+README.md
+node_modules
+nginx.conf.template
+start.sh

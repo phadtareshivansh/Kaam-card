@@ -1,20 +1,23 @@
-const CACHE_NAME = "kaam-card-v5";
-const OFFLINE_CACHE = "kaam-card-offline-v4";
+const CACHE_NAME = "kaam-card-v6";
+const OFFLINE_CACHE = "kaam-card-offline-v5";
 
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
-  "/app.js?v=2",
-  "/api.js",
-  "/csv-parsers.js",
-  "/pdf-parser.js",
-  "/tests.js",
   "/schemes_db.json",
   "/favicon.svg",
   "/logo.svg",
   "/m.svg",
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+];
+
+const JS_ASSETS = [
+  "/app.js",
+  "/api.js",
+  "/csv-parsers.js",
+  "/pdf-parser.js",
+  "/tests.js"
 ];
 
 const CACHE_STRATEGIES = {
@@ -64,6 +67,12 @@ self.addEventListener("fetch", (event) => {
 
   // API requests - network first
   if (url.pathname.startsWith("/api/")) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // JS assets - network first (never cache so changes reflect immediately)
+  if (JS_ASSETS.some(asset => url.pathname.endsWith(asset.replace("/", "")))) {
     event.respondWith(networkFirst(request));
     return;
   }
