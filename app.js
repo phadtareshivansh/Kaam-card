@@ -920,6 +920,8 @@ const FALLBACK_SCHEMES = [
 
 // SIMULATED: this is an in-memory phone-keyed demo session. No password auth,
 // no localStorage token, and no raw transaction persistence are used.
+let introShown = false;
+
 const state = {
   route: "landing",
   session: null,
@@ -1442,7 +1444,26 @@ const TRANSLATIONS = {
   "PayTM": "PayTM",
   "High": "उच्च",
   "Medium": "मध्यम",
-  "Low": "निम्न"
+  "Low": "निम्न",
+  "PAN Card": "पैन कार्ड",
+  "Bank account passbook": "बैंक खाता पासबुक",
+  "Savings bank account passbook": "बैंक बचत खाता पासबुक",
+  "Bank account details": "बैंक खाता विवरण",
+  "Mobile number linked with Aadhaar": "आधार से लिंक मोबाइल नंबर",
+  "Show QR Code": "QR कोड दिखाएं",
+  "Worker Card QR Code": "वर्कर कार्ड QR कोड",
+  "Scan to share your Kaam Card profile": "अपना काम कार्ड प्रोफ़ाइल साझा करने के लिए स्कैन करें",
+  "Expires in 24 hours": "24 घंटे में समाप्त होता है",
+  "Download QR": "QR डाउनलोड करें",
+  "Export Card (HTML)": "कार्ड निर्यात करें (HTML)",
+  "Save as PDF": "PDF के रूप में सहेजें",
+  "Share via App": "ऐप के माध्यम से साझा करें",
+  "Kaam Card Summary": "काम कार्ड सारांश",
+  "Open the official verified portal.": "आधिकारिक सत्यापित पोर्टल खोलें।",
+  "Verify using Aadhaar-linked OTP.": "आधार-लिंक्ड OTP से सत्यापित करें।",
+  "Submit your occupation details and get registered.": "अपना व्यवसाय विवरण जमा करें और पंजीकृत करें।",
+  "Upload a statement to see spending breakdown": "खर्च विवरण देखने के लिए स्टेटमेंट अपलोड करें",
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "स्वचालित व्यय वर्गीकरण और बजट जानकारी प्राप्त करने के लिए बैंक स्टेटमेंट अपलोड करें।"
 };
 
 const TRANSLATIONS_TA = {
@@ -1640,8 +1661,7 @@ const TRANSLATIONS_TA = {
   "Issue": "பிரச்சினை",
   "Add at least one valid credit/income row to continue.": "தொடர குறைந்தபட்சம் ஒரு செல்லுபடியாகும் கிரெடிட்/வருமான வரிசையைச் சேர்க்கவும்.",
   "Analyzed period:": "பகுப்பாய்வு செய்யப்பட்ட காலம்:",
-  "Eligible public schemes (": "தகுதியான பொதுத் திட்டங்கள் (
- ",
+  "Eligible public schemes (": "தகுதியான பொதுத் திட்டங்கள் (",
   " matched)": "பொருந்தியது)",
   "No scheme matches found. Try adjusting search or details.": "திட்டப் பொருத்தங்கள் எதுவும் இல்லை. ",
   "Share Summary": "சுருக்கத்தைப் பகிரவும்",
@@ -1694,32 +1714,25 @@ const TRANSLATIONS_TA = {
   " to ": "நல்ல நாள் உபரி சேமிப்புப் பரிந்துரையானது, பிஸியான வார இறுதி நாட்களில், வறண்ட வார நாட்களை ஈடுகட்ட பணத்தை ஒதுக்க எனக்கு உதவியது.",
   "/month": "வங்கிப் பதிவுகளைப் பகிர்வதைப் பற்றி நான் கவலைப்பட்டேன், ஆனால் காம் கார்டின் தனியுரிமைக் கவனம் ஆச்சரியமாக இருக்கிறது. ",
   "You qualify because your ": "இது எனது உலாவியில் இயங்குகிறது மற்றும் எனது ஆதார் அல்லது பரிவர்த்தனை பட்டியல்களை சேமிக்காது.",
-  " and ": "© 2026 காம் கார்டு.
- ",
-  "Close match: ": "இன் 
- ",
+  " and ": "© 2026 காம் கார்டு.",
+  "Close match: ": "இன்",
   "some details match": "செய்ய ",
   ", but ": "/மாதம்",
-  "age ": "நீங்கள் தகுதி பெறுகிறீர்கள், ஏனென்றால் உங்களுடையது 
- ",
+  "age ": "நீங்கள் தகுதி பெறுகிறீர்கள், ஏனென்றால் உங்களுடையது",
   " is within ": "மற்றும் ",
   "age must be ": "மூடு பொருத்தம்: ",
   "estimated monthly income is below ": "சில விவரங்கள் பொருந்தும்",
   "no income cap holds": ", ஆனால் ",
-  "income is above ": "வயது 
- ",
+  "income is above ": "வயது",
   " is covered": "உள்ளே உள்ளது ",
   "occupation must match: ": "வயது இருக்க வேண்டும் ",
   " state matches": "மதிப்பிடப்பட்ட மாத வருமானம் கீழே உள்ளது ",
-  "state must be ": "மாநிலம் இருக்க வேண்டும் 
- ",
+  "state must be ": "மாநிலம் இருக்க வேண்டும்",
   " or ": "அல்லது ",
   "Worker ": "தொழிலாளி ",
-  "Save ": "சேமிக்கவும் 
- ",
+  "Save ": "சேமிக்கவும்",
   " on good days (above ": "நல்ல நாட்களில் (மேலே ",
-  ")": ")
- ",
+  ")": ")",
   " | +91 ": "| ",
   "-": "+91 ",
   "CSV needs a header and at least one data row.": "-",
@@ -1895,9 +1908,27 @@ const TRANSLATIONS_TA = {
   "Micro Enterprise Loan": "மைக்ரோ எண்டர்பிரைஸ் கடன்",
   "Working capital loan up to ₹10,000 for street vendors, repayable in monthly installments.": "தெருவோர வியாபாரிகளுக்கு ₹10,000 வரையிலான செயல்பாட்டு மூலதனக் கடன், மாதத் தவணைகளில் திருப்பிச் செலுத்தப்படும்.",
   "Loans up to ₹50,000 for income-generating activities in non-corporate small business sector.": "கார்ப்பரேட் அல்லாத சிறு வணிகத் துறையில் வருமானம் ஈட்டும் நடவடிக்கைகளுக்கு ₹50,000 வரை கடன்.",
-  "Small business loan for informal workers to expand livelihood activities.": "வாழ்வாதார நடவடிக்கைகளை விரிவுபடுத்த முறைசாரா தொழிலாளர்களுக்கு சிறு தொழில் கடன்."
+  "Small business loan for informal workers to expand livelihood activities.": "வாழ்வாதார நடவடிக்கைகளை விரிவுபடுத்த முறைசாரா தொழிலாளர்களுக்கு சிறு தொழில் கடன்.",
+  "PAN Card": "பான் கார்டு",
+  "Bank account passbook": "வங்கி கணக்கு பாஸ்புக்",
+  "Savings bank account passbook": "சேமிப்பு வங்கி கணக்கு பாஸ்புக்",
+  "Bank account details": "வங்கி கணக்கு விவரங்கள்",
+  "Mobile number linked with Aadhaar": "ஆதாருடன் இணைக்கப்பட்ட மொபைல் எண்",
+  "Show QR Code": "QR குறியீட்டைக் காட்டு",
+  "Worker Card QR Code": "தொழிலாளர் அட்டை QR குறியீடு",
+  "Scan to share your Kaam Card profile": "உங்கள் காம் கார்டு சுயவிவரத்தைப் பகிர ஸ்கேன் செய்யவும்",
+  "Expires in 24 hours": "24 மணிநேரத்தில் காலாவதியாகிறது",
+  "Download QR": "QR ஐப் பதிவிறக்கவும்",
+  "Export Card (HTML)": "ஏற்றுமதி அட்டை (HTML)",
+  "Save as PDF": "PDF ஆக சேமிக்கவும்",
+  "Share via App": "ஆப் மூலம் பகிரவும்",
+  "Kaam Card Summary": "காம் அட்டை சுருக்கம்",
+  "Open the official verified portal.": "அதிகாரப்பூர்வ சரிபார்க்கப்பட்ட போர்ட்டலைத் திறக்கவும்.",
+  "Verify using Aadhaar-linked OTP.": "ஆதார் இணைக்கப்பட்ட OTP ஐப் பயன்படுத்தி சரிபார்க்கவும்.",
+  "Submit your occupation details and get registered.": "உங்கள் தொழில் விவரங்களைச் சமர்ப்பித்து பதிவு செய்யுங்கள்.",
+  "Upload a statement to see spending breakdown": "செலவினச் சரிவைக் காண அறிக்கையைப் பதிவேற்றவும்",
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "தானியங்கி செலவு வகைப்பாடு மற்றும் பட்ஜெட் நுண்ணறிவுகளைப் பெற, வங்கி அறிக்கையைப் பதிவேற்றவும்."
 };
-
 
 const TRANSLATIONS_TE = {
   "Kaam Card": "కామ్ కార్డ్",
@@ -2094,8 +2125,7 @@ const TRANSLATIONS_TE = {
   "Issue": "సమస్య",
   "Add at least one valid credit/income row to continue.": "కొనసాగించడానికి కనీసం ఒక చెల్లుబాటు అయ్యే క్రెడిట్/ఆదాయ వరుసను జోడించండి.",
   "Analyzed period:": "విశ్లేషించబడిన కాలం:",
-  "Eligible public schemes (": "అర్హతగల ప్రజా పథకాలు (
- ",
+  "Eligible public schemes (": "అర్హతగల ప్రజా పథకాలు (",
   " matched)": "సరిపోలింది)",
   "No scheme matches found. Try adjusting search or details.": "పథకం సరిపోలికలు ఏవీ కనుగొనబడలేదు. ",
   "Share Summary": "సారాంశాన్ని భాగస్వామ్యం చేయండి",
@@ -2148,32 +2178,25 @@ const TRANSLATIONS_TE = {
   " to ": "మంచి-రోజు మిగులు పొదుపు సూచన, పొడి వారాంతపు రోజులను కవర్ చేయడానికి బిజీగా ఉన్న వారాంతాల్లో డబ్బును కేటాయించడంలో నాకు సహాయపడింది.",
   "/month": "నేను బ్యాంక్ లాగ్‌లను షేర్ చేయడం గురించి ఆందోళన చెందాను, కానీ కామ్ కార్డ్ గోప్యతా దృష్టి అద్భుతంగా ఉంది. ",
   "You qualify because your ": "ఇది నా బ్రౌజర్‌లో నడుస్తుంది మరియు నా ఆధార్ లేదా లావాదేవీ జాబితాలను నిల్వ చేయదు.",
-  " and ": "© 2026 కామ్ కార్డ్.
- ",
-  "Close match: ": "యొక్క 
- ",
+  " and ": "© 2026 కామ్ కార్డ్.",
+  "Close match: ": "యొక్క",
   "some details match": "కు ",
   ", but ": "/నెల",
-  "age ": "మీరు అర్హులు ఎందుకంటే మీ 
- ",
+  "age ": "మీరు అర్హులు ఎందుకంటే మీ",
   " is within ": "మరియు ",
   "age must be ": "ముగింపు మ్యాచ్: ",
   "estimated monthly income is below ": "కొన్ని వివరాలు సరిపోతాయి",
   "no income cap holds": ", కానీ ",
-  "income is above ": "వయస్సు 
- ",
+  "income is above ": "వయస్సు",
   " is covered": "లోపల ఉంది ",
   "occupation must match: ": "వయస్సు ఉండాలి ",
   " state matches": "అంచనా వేసిన నెలవారీ ఆదాయం క్రింద ఉంది ",
-  "state must be ": "రాష్ట్రం ఉండాలి 
- ",
+  "state must be ": "రాష్ట్రం ఉండాలి",
   " or ": "లేదా ",
   "Worker ": "కార్మికుడు ",
-  "Save ": "సేవ్ చేయండి 
- ",
+  "Save ": "సేవ్ చేయండి",
   " on good days (above ": "మంచి రోజులలో (పైన ",
-  ")": ")
- ",
+  ")": ")",
   " | +91 ": "| ",
   "-": "+91 ",
   "CSV needs a header and at least one data row.": "-",
@@ -2349,10 +2372,29 @@ const TRANSLATIONS_TE = {
   "Micro Enterprise Loan": "మైక్రో ఎంటర్‌ప్రైజ్ లోన్",
   "Working capital loan up to ₹10,000 for street vendors, repayable in monthly installments.": "వీధి వ్యాపారులకు ₹10,000 వరకు వర్కింగ్ క్యాపిటల్ లోన్, నెలవారీ వాయిదాలలో తిరిగి చెల్లించబడుతుంది.",
   "Loans up to ₹50,000 for income-generating activities in non-corporate small business sector.": "కార్పొరేట్ యేతర చిన్న వ్యాపార రంగంలో ఆదాయాన్ని పెంచే కార్యకలాపాల కోసం ₹50,000 వరకు రుణాలు.",
-  "Small business loan for informal workers to expand livelihood activities.": "జీవనోపాధి కార్యకలాపాలను విస్తరించేందుకు అనధికారిక కార్మికులకు చిన్న వ్యాపార రుణం."
+  "Small business loan for informal workers to expand livelihood activities.": "జీవనోపాధి కార్యకలాపాలను విస్తరించేందుకు అనధికారిక కార్మికులకు చిన్న వ్యాపార రుణం.",
+  "PAN Card": "పాన్ కార్డ్",
+  "Bank account passbook": "బ్యాంక్ ఖాతా పాస్ బుక్",
+  "Savings bank account passbook": "సేవింగ్స్ బ్యాంక్ ఖాతా పాస్‌బుక్",
+  "Bank account details": "బ్యాంక్ ఖాతా వివరాలు",
+  "Mobile number linked with Aadhaar": "మొబైల్ నంబర్ ఆధార్‌తో లింక్ చేయబడింది",
+  "Show QR Code": "QR కోడ్‌ని చూపించు",
+  "Worker Card QR Code": "వర్కర్ కార్డ్ QR కోడ్",
+  "Scan to share your Kaam Card profile": "మీ కామ్ కార్డ్ ప్రొఫైల్‌ను షేర్ చేయడానికి స్కాన్ చేయండి",
+  "Expires in 24 hours": "24 గంటల్లో గడువు ముగుస్తుంది",
+  "Download QR": "QRని డౌన్‌లోడ్ చేయండి",
+  "Export Card (HTML)": "ఎగుమతి కార్డ్ (HTML)",
+  "Save as PDF": "PDFగా సేవ్ చేయండి",
+  "Share via App": "యాప్ ద్వారా షేర్ చేయండి",
+  "Kaam Card Summary": "కామ్ కార్డ్ సారాంశం",
+  "Open the official verified portal.": "అధికారిక ధృవీకరించబడిన పోర్టల్‌ను తెరవండి.",
+  "Verify using Aadhaar-linked OTP.": "ఆధార్-లింక్ చేయబడిన OTPని ఉపయోగించి ధృవీకరించండి.",
+  "Submit your occupation details and get registered.": "మీ వృత్తి వివరాలను సమర్పించి నమోదు చేసుకోండి.",
+  "Upload a statement to see spending breakdown": "ఖర్చుల విభజనను చూడటానికి స్టేట్‌మెంట్‌ను అప్‌లోడ్ చేయండి",
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "ఆటోమేటిక్ ఖర్చు వర్గీకరణ మరియు బడ్జెట్ అంతర్దృష్టులను పొందడానికి బ్యాంక్ స్టేట్‌మెంట్‌ను అప్‌లోడ్ చేయండి."
 };
+
 const TRANSLATIONS_MR = {
-  // Brand / Navigation
   "Kaam Card": "काम कार्ड",
   "Dashboard": "डॅशबोर्ड",
   "Connect Data": "डेटा कनेक्ट करा",
@@ -2507,8 +2549,6 @@ const TRANSLATIONS_MR = {
   "Free health insurance coverage up to Rs. 5 Lakhs per family per year for secondary and tertiary care hospitalization.": "दुय्यम आणि तृतीयक काळजी हॉस्पिटलायझेशनसाठी प्रति वर्ष प्रति कुटुंब रु. ५ लाख पर्यंत मोफत आरोग्य विमा कव्हरेज.",
   "PM SVANidhi Scheme": "PM स्वनिधी योजना",
   "Special micro-credit facility for street vendors to access affordable working capital loans for business revival.": "व्यवसाय पुनरुज्जीवनासाठी परवडणारे कार्यरत भांडवल कर्ज मिळवण्यासाठी स्ट्रीट वेंडर्ससाठी विशेष सूक्ष्म-कर्ज सुविधा.",
-
-  // Fallback scheme names
   "PM Shram Yogi Maandhan": "पीएम श्रम योगी मानधन",
   "e-Shram": "ई-श्रम",
   "PM Jeevan Jyoti Bima Yojana": "पीएम जीवन ज्योती विमा योजना",
@@ -2520,15 +2560,12 @@ const TRANSLATIONS_MR = {
   "Life insurance cover": "जीवन विमा कव्हर",
   "Accident insurance cover": "अपघात विमा कव्हर",
   "Welfare benefits for registered construction workers": "नोंदणीकृत बांधकाम कामगारांसाठी कल्याण लाभ",
-
-  // Loan product names
   "PM SVANidhi": "पीएम स्वनिधी",
   "MUDRA Loan (Shishu)": "मुद्रा कर्ज (शिशु)",
   "Micro Enterprise Loan": "सूक्ष्म उद्यम कर्ज",
   "Working capital loan up to ₹10,000 for street vendors, repayable in monthly installments.": "स्ट्रीट वेंडर्ससाठी ₹१०,००० पर्यंत कार्यरत भांडवल कर्ज, मासिक हप्त्यांमध्ये देय.",
   "Loans up to ₹50,000 for income-generating activities in non-corporate small business sector.": "गैर-कॉर्पोरेट लघु व्यवसाय क्षेत्रात उत्पन्न-निर्मिती क्रियाकलापांसाठी ₹५०,००० पर्यंत कर्ज.",
   "Small business loan for informal workers to expand livelihood activities.": "असंघटित कामगारांसाठी उपजीविका क्रियाकलाप वाढविण्यासाठी लघु व्यवसाय कर्ज.",
-
   "Delivery Partner, Delhi": "डिलिव्हरी पार्टनर, दिल्ली",
   "Cab Driver, Mumbai": "कॅब ड्रायव्हर, मुंबई",
   "Domestic Worker, Bangalore": "घरगुती कामगार, बंगळुरू",
@@ -2747,19 +2784,82 @@ const TRANSLATIONS_MR = {
   "State must be": "राज्य हवे",
   "Monthly income": "मासिक उत्पन्न",
   "Income stability": "उत्पन्न स्थिरता",
-  "Eligible": "पात्र",
   "Listen": "ऐका",
   "UPI": "UPI",
   "Manual": "मॅन्युअल",
   "Generic CSV": "सामान्य CSV",
   "Google Pay": "Google Pay",
-  "PhonePe": "PhonePe",
-  "PayTM": "PayTM",
+  "PhonePe": "फोनपे",
+  "PayTM": "पेटीएम",
   "High": "उच्च",
   "Medium": "मध्यम",
-  "Low": "निम्न"
+  "Low": "निम्न",
+  "High Contrast": "उच्च कॉन्ट्रास्ट",
+  "Voice Input": "व्हॉइस इनपुट",
+  "Screen Reader": "स्क्रीन रीडर",
+  "Enable High Contrast": "उच्च कॉन्ट्रास्ट सक्षम करा",
+  "Disable High Contrast": "उच्च कॉन्ट्रास्ट अक्षम करा",
+  "Enable Voice Input": "व्हॉइस इनपुट सक्षम करा",
+  "Disable Voice Input": "व्हॉइस इनपुट अक्षम करा",
+  "High contrast enabled": "उच्च कॉन्ट्रास्ट सक्षम",
+  "High contrast disabled": "उच्च कॉन्ट्रास्ट अक्षम",
+  "Voice input enabled": "व्हॉइस इनपुट सक्षम केले",
+  "Voice input disabled": "व्हॉइस इनपुट अक्षम",
+  "Tap to speak": "बोलण्यासाठी टॅप करा",
+  "Listening...": "ऐकत आहे...",
+  "Maharashtra Building & Other Construction Workers Welfare Board": "महाराष्ट्र इमारत व इतर बांधकाम कामगार कल्याणकारी मंडळ",
+  "Karnataka Unorganised Workers Social Security Board": "कर्नाटक असंघटित कामगार सामाजिक सुरक्षा मंडळ",
+  "Tamil Nadu Manual Workers Welfare Board": "तामिळनाडू मॅन्युअल कामगार कल्याण मंडळ",
+  "Uttar Pradesh Building & Other Construction Workers Welfare Board": "उत्तर प्रदेश इमारत आणि इतर बांधकाम कामगार कल्याण मंडळ",
+  "West Bengal Unorganised Sector Workers Welfare Board": "पश्चिम बंगाल असंघटित क्षेत्र कामगार कल्याण मंडळ",
+  "Rajasthan Building & Other Construction Workers Welfare Board": "राजस्थान इमारत आणि इतर बांधकाम कामगार कल्याण मंडळ",
+  "Gujarat Building & Other Construction Workers Welfare Board": "गुजरात इमारत आणि इतर बांधकाम कामगार कल्याण मंडळ",
+  "Madhya Pradesh Building & Other Construction Workers Welfare Board": "मध्य प्रदेश इमारत आणि इतर बांधकाम कामगार कल्याण मंडळ",
+  "Bihar Unorganised Workers Social Security Board": "बिहार असंघटित कामगार सामाजिक सुरक्षा मंडळ",
+  "Odisha Unorganised Workers Welfare Board": "ओडिशा असंघटित कामगार कल्याण मंडळ",
+  "PM MUDRA Yojana (Shishu)": "पंतप्रधान मुद्रा योजना (शिशू)",
+  "Janani Suraksha Yojana": "जननी सुरक्षा योजना",
+  "Pradhan Mantri Matru Vandana Yojana": "प्रधानमंत्री मातृ वंदना योजना",
+  "Ayushman Bharat Health Account (ABHA)": "आयुष्मान भारत आरोग्य खाते (ABHA)",
+  "NPS Vatsalya": "NPS वात्सल्य",
+  "PM Kaushal Vikas Yojana (PMKVY)": "पंतप्रधान कौशल विकास योजना (PMKVY)",
+  "Stand-Up India": "स्टँड-अप इंडिया",
+  "Ekta Mall (PM SVANidhi Extension)": "एकता मॉल (पीएम स्वनिधी विस्तार)",
+  "Pension, accident insurance, maternity benefit, death benefit": "पेन्शन, अपघात विमा, मातृत्व लाभ, मृत्यू लाभ",
+  "Pension, accident cover, tool kit assistance, skill training": "पेन्शन, अपघात संरक्षण, टूल किट सहाय्य, कौशल्य प्रशिक्षण",
+  "Pension, accident insurance, marriage assistance, education grant": "पेन्शन, अपघात विमा, विवाह मदत, शिक्षण अनुदान",
+  "Pension, health insurance, disability cover, death benefit": "पेन्शन, आरोग्य विमा, अपंगत्व संरक्षण, मृत्यू लाभ",
+  "Pension, accident insurance, health cover, scholarship": "पेन्शन, अपघात विमा, आरोग्य कवच, शिष्यवृत्ती",
+  "Collateral-free working capital loan up to ₹50,000 for street vendors": "रस्त्यावरील विक्रेत्यांसाठी ₹50,000 पर्यंत संपार्श्विक-मुक्त कार्यरत भांडवल कर्ज",
+  "Guaranteed pension ₹1,000-5,000/month after age 60": "वयाच्या ६० नंतर ₹१,०००-५,०००/महिना हमी पेन्शन",
+  "Micro loan up to ₹50,000 for small business": "लहान व्यवसायासाठी ₹50,000 पर्यंत सूक्ष्म कर्ज",
+  "Cash assistance for institutional delivery": "संस्थात्मक वितरणासाठी रोख मदत",
+  "₹5,000 cash incentive for first live birth": "पहिल्या जिवंत जन्मासाठी ₹5,000 रोख प्रोत्साहन",
+  "Digital health ID for seamless healthcare access": "अखंड आरोग्य सेवा प्रवेशासाठी डिजिटल आरोग्य आयडी",
+  "Pension account for minors, converts to regular NPS at 18": "अल्पवयीनांसाठी पेन्शन खाते, 18 वाजता नियमित NPS मध्ये रूपांतरित होते",
+  "Free skill training with certification and placement support": "प्रमाणपत्र आणि प्लेसमेंट समर्थनासह विनामूल्य कौशल्य प्रशिक्षण",
+  "Bank loan ₹10 lakh - ₹1 crore for SC/ST/Women entrepreneurs": "एससी/एसटी/महिला उद्योजकांसाठी बँक कर्ज ₹10 लाख - ₹1 कोटी",
+  "E-commerce platform for street vendors to sell online": "रस्त्यावरील विक्रेत्यांसाठी ऑनलाइन विक्रीसाठी ई-कॉमर्स प्लॅटफॉर्म",
+  "PAN Card": "पॅन कार्ड",
+  "Bank account passbook": "बँक खाते पासबुक",
+  "Savings bank account passbook": "बचत बँक खाते पासबुक",
+  "Bank account details": "बँक खाते तपशील",
+  "Mobile number linked with Aadhaar": "मोबाईल नंबर आधारशी लिंक केला आहे",
+  "Show QR Code": "QR कोड दाखवा",
+  "Worker Card QR Code": "कामगार कार्ड QR कोड",
+  "Scan to share your Kaam Card profile": "तुमचे काम कार्ड प्रोफाइल शेअर करण्यासाठी स्कॅन करा",
+  "Expires in 24 hours": "२४ तासांत कालबाह्य होईल",
+  "Download QR": "QR डाउनलोड करा",
+  "Export Card (HTML)": "निर्यात कार्ड (HTML)",
+  "Save as PDF": "PDF म्हणून सेव्ह करा",
+  "Share via App": "ॲपद्वारे शेअर करा",
+  "Kaam Card Summary": "काम कार्ड सारांश",
+  "Open the official verified portal.": "अधिकृत सत्यापित पोर्टल उघडा.",
+  "Verify using Aadhaar-linked OTP.": "आधार-लिंक केलेला OTP वापरून पडताळणी करा.",
+  "Submit your occupation details and get registered.": "तुमचा व्यवसाय तपशील सबमिट करा आणि नोंदणी करा.",
+  "Upload a statement to see spending breakdown": "खर्चाचे ब्रेकडाउन पाहण्यासाठी विधान अपलोड करा",
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "स्वयंचलित खर्च वर्गीकरण आणि अंदाजपत्रक अंतर्दृष्टी मिळविण्यासाठी बँक स्टेटमेंट अपलोड करा."
 };
-
 
 
 function t(text) {
@@ -2800,7 +2900,7 @@ function speakText(text, lang) {
 }
 
 function speakBtn(textKey, lang) {
-  return `<button type="button" class="speak-btn" data-speak="${escapeHtml(textKey)}" aria-label="Listen" title="Listen">${ICON_SPEAK}</button>`;
+  return `<button type="button" class="speak-btn" data-speak="${escapeHtml(textKey)}" aria-label="${t("Listen")}" title="${t("Listen")}">${ICON_SPEAK}</button>`;
 }
 
 function locale() {
@@ -5557,21 +5657,20 @@ function renderLanding() {
 
       <!-- Key Benefits / What We Do -->
       <section class="landing-benefits section-with-blobs" id="benefits" aria-labelledby="benefits-title">
-        <div class="section-blob blob-2"></div>
         <h2 id="benefits-title" class="section-title">${t("What We Do")}</h2>
         <p class="section-subtitle">${t("We help gig workers accumulate data value that is normally locked away in siloed apps.")}</p>
         <div class="benefits-grid">
-          <div class="benefit-item displace-card">
+          <div class="benefit-item displace-card animate-on-scroll">
             <div class="benefit-icon green">${ICONS.bars}</div>
             <h3>${t("Income Analytics")}</h3>
             <p>${t("Understand your earnings variance, good days vs bad days, and average monthly income instantly.")}</p>
           </div>
-          <div class="benefit-item displace-card">
+          <div class="benefit-item displace-card animate-on-scroll">
             <div class="benefit-icon blue">${ICONS.schemes}</div>
             <h3>${t("Scheme Matching")}</h3>
             <p>${t("Automatically match your computed income against real criteria for e-Shram, PM-SYM, PM-JAY, and more.")}</p>
           </div>
-          <div class="benefit-item displace-card">
+          <div class="benefit-item displace-card animate-on-scroll">
             <div class="benefit-icon saffron">${ICONS.wallet}</div>
             <h3>${t("Smart Micro-Savings")}</h3>
             <p>${t("Get a mathematically grounded savings rule based on your actual income surplus on high-earning days.")}</p>
@@ -5584,15 +5683,15 @@ function renderLanding() {
         <div class="section-blob blob-3"></div>
         <h2 id="metrics-title" class="section-title">${t("Designed for India's Informal Workforce")}</h2>
         <div class="stat-displace">
-          <div class="stat-card">
+          <div class="stat-card animate-on-scroll">
             <div class="stat-value green">${t("2 min")}</div>
             <div class="stat-label">${t("Average setup time")}</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card animate-on-scroll">
             <div class="stat-value saffron">100%</div>
             <div class="stat-label">${t("Private: No Aadhaar stored")}</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card animate-on-scroll">
             <div class="stat-value blue">${t("Zero")}</div>
             <div class="stat-label">${t("Data stored on servers")}</div>
           </div>
@@ -5605,21 +5704,21 @@ function renderLanding() {
         <h2 id="steps-title" class="section-title">${t("Three Simple Steps")}</h2>
         <p class="section-subtitle">${t("From phone to dashboard in under 2 minutes")}</p>
         <div style="display:flex;flex-direction:column;gap:24px;max-width:640px;margin:0 auto">
-          <div class="step-nom">
+          <div class="step-nom animate-on-scroll">
             <div class="step-nom__num">1</div>
             <div class="step-nom__body">
               <h3>${t("Secure OTP Login")}</h3>
               <p>${t("Enter your phone number to start a secure, isolated sandbox session. No passwords required.")}</p>
             </div>
           </div>
-          <div class="step-nom">
+          <div class="step-nom animate-on-scroll">
             <div class="step-nom__num">2</div>
             <div class="step-nom__body">
               <h3>${t("Upload Statements")}</h3>
               <p>${t("Drop a bank statement or UPI statement CSV. We parse it locally in your browser and discard raw transaction details.")}</p>
             </div>
           </div>
-          <div class="step-nom">
+          <div class="step-nom animate-on-scroll">
             <div class="step-nom__num">3</div>
             <div class="step-nom__body">
               <h3>${t("Get Kaam Dashboard")}</h3>
@@ -5635,21 +5734,21 @@ function renderLanding() {
         <h2 id="social-title" class="section-title">${t("Loved by Workers")}</h2>
         <p class="section-subtitle">${t("Hear from informal partners who verified their scheme eligibility using Kaam Card.")}</p>
         <div class="benefits-grid testimonial-displace">
-          <blockquote>
+          <blockquote class="animate-on-scroll">
             <p class="quote">"${t("Using Kaam Card took less than 2 minutes. It computed my average daily income and showed me I qualified for PM-SYM pension. I registered the same day!")}"</p>
             <cite>
               <strong>Rajesh Kumar</strong>
               <span>${t("Delivery Partner, Delhi")}</span>
             </cite>
           </blockquote>
-          <blockquote>
+          <blockquote class="animate-on-scroll">
             <p class="quote">"${t("I always wanted to save but didn't know how much. The good-day surplus savings suggestion helped me set aside money on busy weekends to cover dry weekdays.")}"</p>
             <cite>
               <strong>Amit Mishra</strong>
               <span>${t("Cab Driver, Mumbai")}</span>
             </cite>
           </blockquote>
-          <blockquote>
+          <blockquote class="animate-on-scroll">
             <p class="quote">"${t("I was worried about sharing bank logs, but Kaam Card's privacy focus is amazing. It runs on my browser and doesn't store my Aadhaar or transaction lists.")}"</p>
             <cite>
               <strong>Sunita Devi</strong>
@@ -5717,6 +5816,7 @@ function renderLanding() {
   bindLandingActions();
   bindThemeToggle();
   bindGoHome();
+  initScrollAnimations();
 }
 
 function bindLandingActions() {
@@ -5782,6 +5882,21 @@ function bindPurgeSession() {
   });
   document.querySelectorAll("[data-logout]").forEach((button) => {
     button.addEventListener("click", logout);
+  });
+}
+
+function initScrollAnimations() {
+  const observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll(".animate-on-scroll").forEach(function (el) {
+    observer.observe(el);
   });
 }
 
@@ -5983,6 +6098,50 @@ function bindPromoClose() {
       if (card) card.style.display = "none";
     });
   }
+}
+
+function showIntroVideo(callback) {
+  if (introShown || state.route !== "landing") {
+    callback();
+    return;
+  }
+
+  app.innerHTML = "";
+
+  const overlay = document.createElement("div");
+  overlay.className = "video-intro-overlay";
+  overlay.innerHTML = `
+    <video src="./land.mp4" autoplay muted playsinline preload="auto"></video>
+    <div class="video-intro-skip-hint">${t("Tap anywhere to skip")}</div>
+  `;
+  document.body.appendChild(overlay);
+
+  const video = overlay.querySelector("video");
+  const hint = overlay.querySelector(".video-intro-skip-hint");
+
+  function dismiss() {
+    if (overlay.classList.contains("slide-out")) return;
+    callback();
+    overlay.classList.add("slide-out");
+    removeEventListener("keydown", onKey);
+    setTimeout(() => {
+      overlay.remove();
+      introShown = true;
+    }, 900);
+  }
+
+  function onKey(e) {
+    if (e.key === "Escape" || e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      dismiss();
+    }
+  }
+  addEventListener("keydown", onKey);
+
+  video.addEventListener("ended", dismiss);
+  overlay.addEventListener("click", dismiss);
+
+  video.play().catch(function () {});
 }
 
 function render() {
@@ -6260,38 +6419,6 @@ window.addEventListener("unhandledrejection", function (event) {
   console.error("Unhandled promise rejection:", event.reason);
 });
 
-let introDone = false;
-
-function hideIntroThenRender() {
-  if (introDone) return;
-  introDone = true;
-  const overlay = document.getElementById("intro-overlay");
-  const video = document.getElementById("intro-video");
-  if (video) video.pause();
-  if (overlay) {
-    overlay.classList.add("intro-hidden");
-    const done = () => {
-      overlay.removeEventListener("transitionend", done);
-      overlay.remove();
-      render();
-    };
-    overlay.addEventListener("transitionend", done, { once: true });
-    setTimeout(done, 800);
-  } else {
-    render();
-  }
-}
-
-const introOverlay = document.getElementById("intro-overlay");
-const introVideo = document.getElementById("intro-video");
-if (introVideo) {
-  introVideo.addEventListener("ended", hideIntroThenRender);
-  introVideo.addEventListener("error", hideIntroThenRender);
-  introVideo.play().catch(() => {});
-}
-if (introOverlay) {
-  introOverlay.querySelector("#intro-skip-btn")?.addEventListener("click", hideIntroThenRender);
-}
 
 applyTheme(state.theme);
 initInteractiveGridPattern();
@@ -6316,7 +6443,7 @@ loadSchemesDb().finally(async () => {
   if (loadSession()) {
     state.route = state.profile ? "dashboard" : "upload";
   }
+  showIntroVideo(render);
 });
 
-// Fallback: auto-dismiss intro after 15s if video never ends
-setTimeout(hideIntroThenRender, 15000);
+

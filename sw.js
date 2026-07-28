@@ -1,11 +1,11 @@
-const CACHE_NAME = "kaam-card-v3";
-const OFFLINE_CACHE = "kaam-card-offline-v2";
+const CACHE_NAME = "kaam-card-v5";
+const OFFLINE_CACHE = "kaam-card-offline-v4";
 
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
-  "/app.js",
+  "/app.js?v=2",
   "/api.js",
   "/csv-parsers.js",
   "/pdf-parser.js",
