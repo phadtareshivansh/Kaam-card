@@ -3870,9 +3870,10 @@ function renderUpload() {
         </div>
       </section>
 
+      <div class="consent-gated-content ${isConsentChecked ? "" : "is-disabled"}">
       <p class="copy">${t("Upload a CSV or bank statement PDF. Links inside files are treated as plain text.")}</p>
-      <label class="upload-zone ${isConsentChecked ? "" : "is-disabled"}" id="drop-zone">
-        <input id="csv-file" type="file" accept=".csv,.pdf,text/csv,application/pdf" ${isConsentChecked ? "" : "disabled"}>
+      <label class="upload-zone" id="drop-zone">
+        <input id="csv-file" type="file" accept=".csv,.pdf,text/csv,application/pdf">
         <span>${ICONS.upload}<strong>${t("Tap to upload CSV or PDF")}</strong><small>${t("or drag and drop. CSV or PDF, up to 5 MB.")}</small></span>
       </label>
 
@@ -3959,10 +3960,11 @@ function renderUpload() {
         <h2 id="samples-title">${t("Sample datasets")}</h2>
         <div class="samples-grid">
           ${SAMPLE_DATASETS.map((sample) => `
-            <button class="sample-btn" type="button" data-sample="${escapeHtml(sample.id)}" ${isConsentChecked ? "" : "disabled"}>${ICONS.file}<span>${escapeHtml(t(sample.name))}</span></button>
+            <button class="sample-btn" type="button" data-sample="${escapeHtml(sample.id)}">${ICONS.file}<span>${escapeHtml(t(sample.name))}</span></button>
           `).join("")}
         </div>
       </section>
+      </div>
       ${state.parseResult ? renderParseStatus() : ""}
       <button class="primary-btn" type="button" data-dashboard ${state.profile ? "" : "disabled"}>${t("Continue to dashboard")}</button>
       ${state.session ? renderBottomNav("Upload") : ""}
@@ -4021,19 +4023,10 @@ function renderUpload() {
     consentCheck.addEventListener("change", (event) => {
       state.consentGiven = event.target.checked;
       addAuditLog(state.consentGiven ? "Consent authorized: user agreed to browser-local transaction processing." : "Consent revoked.");
-      const fileInput = document.querySelector("#csv-file");
-      if (fileInput) fileInput.disabled = !state.consentGiven;
-      const dropZone = document.querySelector("#drop-zone");
-      if (dropZone) {
-        if (state.consentGiven) {
-          dropZone.classList.remove("is-disabled");
-        } else {
-          dropZone.classList.add("is-disabled");
-        }
+      const gated = document.querySelector(".consent-gated-content");
+      if (gated) {
+        gated.classList.toggle("is-disabled", !state.consentGiven);
       }
-      document.querySelectorAll("[data-sample]").forEach((btn) => {
-        btn.disabled = !state.consentGiven;
-      });
       saveSession();
     });
   }

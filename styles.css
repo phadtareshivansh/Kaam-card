@@ -760,6 +760,12 @@ a {
   pointer-events: none;
 }
 
+.consent-gated-content.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
+}
+
 .upload-zone input {
   position: absolute;
   inset: 0;
