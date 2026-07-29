@@ -5689,7 +5689,7 @@ function renderLanding() {
           </div>
           <div class="stat-card animate-on-scroll">
             <div class="stat-value saffron">100%</div>
-            <div class="stat-label">${t("Private: No Aadhaar stored")}</div>
+            <div class="stat-label">${t("100% Private: No Aadhaar or PAN stored")}</div>
           </div>
           <div class="stat-card animate-on-scroll">
             <div class="stat-value blue">${t("Zero")}</div>
