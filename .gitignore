@@ -1,3 +1,11 @@
+# Firebase
+.firebase/
+.firebaserc
+firebase.json
+
+# GCP key (was tracked, must not be re-added)
+gcp-key.json
+
 # Secrets & keys
 private_key.pem
 public_key.pem
