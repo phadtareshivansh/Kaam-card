@@ -1,0 +1,38 @@
+# Secrets & keys
+private_key.pem
+public_key.pem
+*.key
+*.pem
+*.crt
+*.cert
+.env
+.env.local
+.env.*.local
+*.secret
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime
+runtime/
