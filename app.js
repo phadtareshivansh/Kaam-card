@@ -1491,7 +1491,9 @@ const TRANSLATIONS = {
   "The savings card shows how much to save on good days to cover low-income days automatically.": "बचत कार्ड दिखाता है कि कम आय वाले दिनों को स्वचालित रूप से कवर करने के लिए अच्छे दिनों में कितनी बचत करनी है।",
   "Track your spending by category and set budgets to stay in control.": "श्रेणी के अनुसार अपने खर्च पर नज़र रखें और नियंत्रण में रहने के लिए बजट निर्धारित करें।",
   "Generate a portable summary of your verified profile to share with employers or schemes.": "नियोक्ताओं या योजनाओं के साथ साझा करने के लिए अपने सत्यापित प्रोफ़ाइल का एक पोर्टेबल सारांश तैयार करें।",
-  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "आपका दैनिक आय चार्ट अच्छे और बुरे दिनों को दिखाता है, जिससे आपको अपने आय पैटर्न को समझने में मदद मिलती है।"
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "आपका दैनिक आय चार्ट अच्छे और बुरे दिनों को दिखाता है, जिससे आपको अपने आय पैटर्न को समझने में मदद मिलती है।",
+  "Schemes": "योजनाएं",
+  "Messy CSV": "गड़बड़ CSV"
 };
 
 const TRANSLATIONS_TA = {
@@ -1983,7 +1985,9 @@ const TRANSLATIONS_TA = {
   "The savings card shows how much to save on good days to cover low-income days automatically.": "சேமிப்பு அட்டை, குறைந்த வருமான நாட்களை தானாக ஈடுகட்ட நல்ல நாட்களில் எவ்வளவு சேமிக்க வேண்டும் என்பதைக் காட்டுகிறது.",
   "Track your spending by category and set budgets to stay in control.": "வகை வாரியாக உங்கள் செலவினங்களைக் கண்காணித்து, கட்டுக்கோப்பாக இருக்க பட்ஜெட்டுகளை அமைக்கவும்.",
   "Generate a portable summary of your verified profile to share with employers or schemes.": "முதலாளிகள் அல்லது திட்டங்களுடன் பகிர்ந்து கொள்ள உங்கள் சரிபார்க்கப்பட்ட சுயவிவரத்தின் போர்ட்டபிள் சுருக்கத்தை உருவாக்கவும்.",
-  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "உங்கள் தினசரி வருவாய் விளக்கப்படம் நல்ல நாட்கள் மற்றும் கெட்ட நாட்களைக் காட்டுகிறது, உங்கள் வருமான முறைகளைப் புரிந்துகொள்ள உதவுகிறது."
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "உங்கள் தினசரி வருவாய் விளக்கப்படம் நல்ல நாட்கள் மற்றும் கெட்ட நாட்களைக் காட்டுகிறது, உங்கள் வருமான முறைகளைப் புரிந்துகொள்ள உதவுகிறது.",
+  "Schemes": "திட்டங்கள்",
+  "Messy CSV": "குழப்பமான CSV"
 };
 const TRANSLATIONS_TE = {
   "Kaam Card": "కామ్ కార్డ్",
@@ -2474,7 +2478,9 @@ const TRANSLATIONS_TE = {
   "The savings card shows how much to save on good days to cover low-income days automatically.": "సేవింగ్స్ కార్డ్ తక్కువ ఆదాయ రోజులను స్వయంచాలకంగా కవర్ చేయడానికి మంచి రోజులలో ఎంత పొదుపు చేయాలో చూపిస్తుంది.",
   "Track your spending by category and set budgets to stay in control.": "వర్గం వారీగా మీ ఖర్చులను ట్రాక్ చేయండి మరియు నియంత్రణలో ఉండటానికి బడ్జెట్‌లను సెట్ చేయండి.",
   "Generate a portable summary of your verified profile to share with employers or schemes.": "యజమానులు లేదా పథకాలతో భాగస్వామ్యం చేయడానికి మీ ధృవీకరించబడిన ప్రొఫైల్ యొక్క పోర్టబుల్ సారాంశాన్ని రూపొందించండి.",
-  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "మీ రోజువారీ ఆదాయాల చార్ట్ మంచి రోజులు మరియు చెడు రోజులను చూపిస్తుంది, మీ ఆదాయ నమూనాలను అర్థం చేసుకోవడంలో మీకు సహాయపడుతుంది."
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "మీ రోజువారీ ఆదాయాల చార్ట్ మంచి రోజులు మరియు చెడు రోజులను చూపిస్తుంది, మీ ఆదాయ నమూనాలను అర్థం చేసుకోవడంలో మీకు సహాయపడుతుంది.",
+  "Schemes": "పథకాలు",
+  "Messy CSV": "గజిబిజి CSV"
 };
 const TRANSLATIONS_MR = {
   "Kaam Card": "काम कार्ड",
@@ -2968,7 +2974,9 @@ const TRANSLATIONS_MR = {
   "The savings card shows how much to save on good days to cover low-income days automatically.": "बचत कार्ड दर्शविते की कमी उत्पन्नाच्या दिवसांना आपोआप कव्हर करण्यासाठी चांगल्या दिवसात किती बचत करावी.",
   "Track your spending by category and set budgets to stay in control.": "श्रेणीनुसार तुमचा खर्च ट्रॅक करा आणि नियंत्रणात राहण्यासाठी बजेट सेट करा.",
   "Generate a portable summary of your verified profile to share with employers or schemes.": "नियोक्ते किंवा योजनांसह सामायिक करण्यासाठी तुमच्या सत्यापित प्रोफाइलचा पोर्टेबल सारांश तयार करा.",
-  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "तुमचा दैनिक कमाई चार्ट चांगले आणि वाईट दिवस दर्शवितो, ज्यामुळे तुम्हाला तुमच्या उत्पन्नाचे नमुने समजण्यास मदत होते."
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "तुमचा दैनिक कमाई चार्ट चांगले आणि वाईट दिवस दर्शवितो, ज्यामुळे तुम्हाला तुमच्या उत्पन्नाचे नमुने समजण्यास मदत होते.",
+  "Schemes": "योजना",
+  "Messy CSV": "गडबड CSV"
 };
 
 
