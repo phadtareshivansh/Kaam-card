@@ -11,7 +11,7 @@ Built for India's 400M+ informal and gig workers, without ever asking for Aadhaa
 [![Privacy First](https://img.shields.io/badge/Data-Never%20Leaves%20Browser-2ea44f)](#privacy-and-safety)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
 
-[Demo Flow](#demo-flow) • [Features](#features) • [Architecture](#architecture-diagram) • [Run Locally](#run-locally) • [Privacy](#privacy-and-safety)
+[How It Works](#-how-it-works) • [Features](#-features) • [Demo Flow](#-demo-flow) • [Run Locally](#-run-locally) • [Privacy](#-privacy-and-safety)
 
 </div>
 
@@ -25,81 +25,84 @@ The goal is to bridge the gap between India's informal workforce and the social 
 
 ---
 
-## 📑 Table of Contents
-
-- [How It Works](#-how-it-works)
-- [Features](#-features)
-- [Process Flow Diagram](#-process-flow-diagram)
-- [Architecture Diagram](#-architecture-diagram)
-- [Technologies Used](#-technologies-used)
-- [Demo Flow](#-demo-flow)
-- [Run Locally](#-run-locally)
-- [CSV Format](#-csv-format)
-- [Privacy and Safety](#-privacy-and-safety)
-- [Project Structure](#-project-structure)
-- [Hackathon Definition of Done](#-hackathon-definition-of-done)
-
----
-
 ## 🔄 How It Works
 
-1. **Secure Session** — The user enters their phone number and a demo OTP to start an isolated, in-memory sandbox session. No password or personal identity is stored.
-2. **Data Upload** — The user uploads a bank statement CSV (or picks a sample dataset). The file is parsed entirely in the browser using a custom CSV parser that gracefully skips malformed rows.
-3. **Income Profile Computation** — From the parsed credit/income transactions, the app computes:
-   - Average daily income
-   - Income variance (standard deviation)
-   - Good-day threshold (mean + 0.5σ)
-   - Bad-day threshold (mean − 0.5σ)
-   - Good-day and bad-day counts
-   - Monthly income estimate
-4. **Scheme Matching** — The computed income profile, along with the user's age, occupation, and state, is matched against real welfare scheme criteria (PM-SYM, e-Shram, PM-JAY, PM-SVANidhi, etc.) using a deterministic scoring engine.
-5. **Savings Suggestion** — An arithmetic-based micro-savings rule is generated: on high-earning days, set aside a calculated surplus to cover low-income days.
-6. **Dashboard & Insights** — Results are presented in a mobile-first dashboard with an income chart, ranked scheme cards with plain-language reasons, savings projection, and a shareable summary.
+1. **Secure Session** — Enter a phone number and demo OTP to start an isolated, in-memory sandbox session.
+2. **Data Upload** — Upload a bank statement CSV/PDF or pick a sample dataset. Parsed entirely in-browser with malformed-row tolerance.
+3. **Income Profile** — From credit transactions, computes: avg daily income, variance (σ), good/bad day thresholds (mean ± 0.5σ), counts, and monthly estimate.
+4. **Scheme Matching** — Income profile + age + occupation + state matched against 27 welfare schemes via deterministic scoring.
+5. **Savings Rule** — Arithmetic micro-savings: on high-earning days, set aside surplus to cover low-income days.
+6. **Dashboard** — Income chart, ranked scheme cards, savings projection, and shareable summary.
 
 ---
 
 ## ✨ Features
 
 ### 📊 Income Analysis
-- CSV/PDF bank statement parsing with malformed-row tolerance
-- Sample datasets for delivery workers, street vendors, and messy data
-- Average daily income, variance, good/bad day thresholds and counts
-- Daily earnings trend chart
-- Monthly income estimate
-- Expense summary breakdown
+- CSV/PDF bank/UPI statement parsing — supports generic, GPay, PhonePe, Paytm formats
+- 3 sample datasets: Delivery worker, Street vendor, Messy CSV
+- Malformed-row tolerance with per-row error reporting
+- Daily earnings trend bar chart (good/bad/neutral color-coded)
+- Expense auto-categorization (Food, Transport, Bills, Groceries, Healthcare, etc.)
+- Expense summary with top-category detection
 
 ### 🏛️ Scheme Matching
-- Deterministic rule-based matching against real welfare schemes
-- Schemes covered: PM-SYM, e-Shram, PM-JAY, PM-SVANidhi, PM-JJBY, PM-SBY, Delhi Construction Workers Welfare Board, and more
-- Ranked results with eligibility/near-match classification
-- Plain-language reasons for each match (age, income, occupation, state)
-- Secure portal redirect with `.gov.in` / `.nic.in` domain validation
-- Step-by-step application guidance modal with document checklist
+- 27 welfare schemes: PM-SYM, e-Shram, PM-JAY, PM-SVANidhi, PMJJBY, PMSBY, Atal Pension Yojana, PM MUDRA, PMKVY, Stand-Up India, ABHA, Janani Suraksha, Matru Vandana, Ekta Mall, NPS Vatsalya, and 10 state-specific BOCW boards
+- Deterministic rule engine using age, income, occupation, and state
+- Ranked results with eligibility / near-match classification
+- Plain-language reasons for each match
+- Step-by-step application guidance modal with document checklist per scheme
+- Scheme search & filter
+- `.gov.in` / `.nic.in` domain-validated portal redirects
+- Deadline tracking with reminders
 
 ### 💰 Smart Savings
-- Personalized good-day surplus savings calculation
-- Projected monthly and 3/6-month savings estimates
+- Personalized good-day surplus calculation (45% of income above threshold)
+- Projected monthly, 3-month, and 6-month savings estimates
 - Low-income day coverage projection
 
+### ♿ Accessibility
+- High-contrast mode
+- Voice input (speech-to-text) — supports Hindi, Tamil, Telugu, Marathi, English
+- Screen reader live announcements (`aria-live`)
+- Skip-to-content navigation link
+- Keyboard & focus management
+
 ### 🔒 Privacy & Security
-- 100% in-browser processing — no data sent to servers
+- 100% in-browser — zero data sent to any server
 - No Aadhaar, PAN, or bank account numbers collected
 - Raw transaction rows discarded after aggregate computation
 - In-memory session with phone-keyed isolation
 - No `localStorage` for session data (only theme preference)
+- Session timeout (30 min idle) with auto-purge
 - Local Security Audit Trail logging all user actions
 - Verified portal links validated against `.gov.in` / `.nic.in`
+- Consent flow before data parsing
+- Links inside uploaded files treated as inert text
 
-### 🎨 User Experience
-- Mobile-first responsive design
-- Light/dark theme toggle
-- Multi-language support (English, Hindi, Tamil, Telugu, Marathi)
-- Text-to-speech for scheme details (11 Indian languages)
-- Interactive grid background with animated particles
-- Custom cursor for desktop
-- Service Worker for offline support
-- PWA manifest for installable web app
-- Shareable plain-text summary of worker profile
+### 🌐 i18n & UX
+- Multi-language: English, Hindi, Tamil, Telugu, Marathi
+- Light/dark theme with system preference detection
+- Mobile-first responsive design with adaptive layouts
+- Animated particle grid background
+- Slide-out side rail menu + right sidebar
+- Bottom navigation (Dashboard, Upload, Insights, Schemes)
+- Shareable plain-text worker profile summary
+
+### 📦 PWA & Offline
+- Service Worker with cache-first / network-first strategies
+- Installable via PWA manifest
+- Offline support for cached assets
+- Offline upload queue via IndexedDB (localStorage fallback)
+- Background sync for pending uploads
+- Push notification handling
+
+### 🧪 Testing
+- 30+ unit tests: CSV parsing, profile computation, expense profiling, translations, formatting, occupation normalization, loan eligibility
+
+### 🐳 Infrastructure
+- Dockerized (nginx:alpine with gzip, caching, envsubst)
+- Python scheme scraper utility
 
 ---
 
@@ -139,7 +142,7 @@ flowchart LR
         JS --> Matcher[Scheme Matching Engine]
         JS --> Savings[Savings Calculator]
         JS --> i18n[Multi-language Engine]
-        JS --> TTS[Text-to-Speech]
+        JS --> TTS[Voice Input / Speech-to-Text]
         JS --> SW[Service Worker / PWA]
     end
 
@@ -172,39 +175,35 @@ flowchart LR
 | **HTML5** | Application shell and semantic structure |
 | **CSS3** | Responsive layout, theming (custom properties), animations |
 | **Vanilla JavaScript (ES6+)** | All application logic — no framework dependencies |
-| **IndexedDB** | Offline upload queue for demo reliability |
+| **IndexedDB** | Offline upload queue |
 | **Service Workers** | Offline caching, PWA installability |
 | **PDF.js** | Client-side PDF statement parsing |
+| **Web Speech API** | Voice input (speech-to-text) in 5 languages |
 
-### Google Services (Planned / Architecture Vision)
-
-| Service | Purpose |
-|---|---|
-| **Google Cloud Translate API** | Real-time translation for additional Indian languages beyond the current 5 |
-| **Google Maps Platform** | Worker location detection for state-specific scheme matching |
-| **Firebase Authentication** | Production-grade phone OTP authentication replacing the demo flow |
-| **Firebase Analytics** | Usage metrics to improve scheme matching coverage |
-| **Google Cloud CDN** | Low-latency static asset delivery for PWA |
-
-### NVIDIA Services (Planned / Architecture Vision)
+### Planned / Architecture Vision
 
 | Service | Purpose |
 |---|---|
-| **NVIDIA RAPIDS** | GPU-accelerated income variance analysis and anomaly detection on large transaction datasets |
-| **NVIDIA NeMo** | Natural language processing for extracting scheme eligibility criteria from unstructured government PDFs |
-| **NVIDIA Triton Inference Server** | Production deployment of ML-based scheme recommendation models |
-| **NVIDIA cuDF** | High-performance CSV/DataFrame processing for scaling to millions of transactions |
+| **Google Cloud Translate API** | Real-time translation for additional Indian languages |
+| **Google Maps Platform** | Worker location detection for state-specific matching |
+| **Firebase Authentication** | Production-grade phone OTP auth replacing demo flow |
+| **Firebase Analytics** | Usage metrics to improve scheme coverage |
+| **Google Cloud CDN** | Low-latency PWA asset delivery |
+| **NVIDIA RAPIDS** | GPU-accelerated income variance & anomaly detection |
+| **NVIDIA NeMo** | NLP for extracting criteria from government PDFs |
+| **NVIDIA Triton Inference Server** | ML-based scheme recommendation deployment |
+| **NVIDIA cuDF** | High-volume CSV/DataFrame processing |
 
 ---
 
 ## 🎬 Demo Flow
 
-1. Open the app — an intro video plays, then transitions to the landing page.
-2. Tap **"LOG IN / START"**, enter a phone number and any 4-digit OTP.
+1. Open the app — intro video plays, transitions to landing page.
+2. Tap **LOG IN / START**, enter a phone number and any 4-digit OTP.
 3. Upload a CSV/PDF statement or choose a sample dataset.
 4. Review parsed rows and any skipped malformed rows.
-5. The dashboard loads with your income pattern, matched schemes, and savings rule.
-6. Use the bottom navigation for **Dashboard**, **Upload**, **Insights**, and **Schemes**.
+5. Dashboard loads with income pattern, matched schemes, and savings rule.
+6. Use bottom navigation for **Dashboard**, **Upload**, **Insights**, **Schemes**.
 7. Tap any scheme card for step-by-step application guidance.
 8. Copy the shareable summary from the **More** menu.
 
@@ -212,7 +211,7 @@ flowchart LR
 
 ## 🚀 Run Locally
 
-This is a static HTML/CSS/JavaScript app. No build step is required.
+Static HTML/CSS/JS app — no build step required.
 
 ```bash
 python3 -m http.server 8080
@@ -220,11 +219,16 @@ python3 -m http.server 8080
 
 Then visit `http://localhost:8080`.
 
+### Docker
+
+```bash
+docker build -t kaam-card .
+docker run -p 8080:8080 kaam-card
+```
+
 ---
 
 ## 📄 CSV Format
-
-Required columns:
 
 ```csv
 date,amount,direction
@@ -234,45 +238,52 @@ date,amount,direction
 
 | Field | Details |
 |---|---|
-| **Accepted date formats** | `YYYY-MM-DD`, `DD-MM-YYYY`, `DD/MM/YYYY` |
-| **Accepted income directions** | `credit`, `income`, `in`, `deposit`, `received`, `cr` |
+| **Date formats** | `YYYY-MM-DD`, `DD-MM-YYYY`, `DD/MM/YYYY` |
+| **Income directions** | `credit`, `income`, `in`, `deposit`, `received`, `cr` |
+| **Debit directions** | `debit`, `expense`, `withdrawal`, `paid`, `dr` |
 
-> Debit/expense rows are parsed but not counted as income.
+> Debit/expense rows are parsed but not counted as income.  
+> GPay, PhonePe, and Paytm CSV formats are auto-detected.
 
 ---
 
 ## 🔐 Privacy and Safety
 
-- No Aadhaar, PAN, or full bank account numbers are collected.
-- Uploaded transactions are processed entirely in the browser.
-- Raw transaction rows are discarded after aggregate income stats are computed.
-- The demo session is in-memory and phone-keyed — no password login.
-- No session token is stored in `localStorage` (only theme preference is persisted).
-- External scheme links are hardcoded HTTPS URLs validated against `.gov.in` / `.nic.in` domains.
-- Links found inside uploaded files are treated as inert text and never auto-followed.
+- No Aadhaar, PAN, or full bank account numbers collected.
+- Uploaded transactions processed entirely in the browser.
+- Raw transaction rows discarded after aggregate income stats computed.
+- Demo session is in-memory and phone-keyed — no password.
+- No session token in `localStorage` (only theme preference persisted).
+- External scheme links are hardcoded HTTPS URLs validated against `.gov.in` / `.nic.in`.
+- Links found inside uploaded files treated as inert text — never auto-followed.
 
 ---
 
 ## 📁 Project Structure
 
-```text
+```
 .
-├── index.html          # Entry point
-├── styles.css          # All styles (3920+ lines)
-├── app.js              # Application logic (6400+ lines)
-├── api.js              # Simulated localStorage-backed API
-├── db.js               # IndexedDB wrapper
-├── csv-parsers.js      # CSV/PDF transaction parser
-├── pdf-parser.js        # PDF.js integration
-├── translate.js        # i18n engine (5 languages)
-├── tests.js             # Automated test suite
-├── sw.js                # Service Worker
-├── manifest.json        # PWA manifest
-├── schemes_db.json       # Welfare scheme database
-├── land.mp4              # Intro video
+├── index.html              # Entry point
+├── styles.css              # All styles
+├── app.js                  # Application logic + i18n (5 langs)
+├── api.js                  # Simulated localStorage-backed API
+├── db.js                   # IndexedDB wrapper
+├── csv-parsers.js          # CSV transaction parser
+├── pdf-parser.js           # PDF.js integration
+├── translate.js            # i18n auto-translation tool (Node)
+├── tests.js                # Automated test suite
+├── sw.js                   # Service Worker
+├── manifest.json           # PWA manifest
+├── schemes_db.json         # Welfare scheme database
+├── debug.js                # Debug utility
+├── land.mp4                # Intro video
 ├── favicon.svg / logo.svg / m.svg
-├── COMPONENTS/UI/         # React reference components (design docs)
-└── scripts/               # Scheme scraper utility
+├── COMPONENTS/UI/          # Design reference components
+├── scripts/                # Scheme scraper utility
+├── Dockerfile              # Nginx container
+├── nginx.conf.template     # Nginx config
+├── start.sh                # Container entrypoint
+└── .github/                # CI/CD workflows
 ```
 
 ---
