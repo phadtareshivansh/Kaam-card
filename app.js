@@ -1463,7 +1463,35 @@ const TRANSLATIONS = {
   "Verify using Aadhaar-linked OTP.": "आधार-लिंक्ड OTP से सत्यापित करें।",
   "Submit your occupation details and get registered.": "अपना व्यवसाय विवरण जमा करें और पंजीकृत करें।",
   "Upload a statement to see spending breakdown": "खर्च विवरण देखने के लिए स्टेटमेंट अपलोड करें",
-  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "स्वचालित व्यय वर्गीकरण और बजट जानकारी प्राप्त करने के लिए बैंक स्टेटमेंट अपलोड करें।"
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "स्वचालित व्यय वर्गीकरण और बजट जानकारी प्राप्त करने के लिए बैंक स्टेटमेंट अपलोड करें।",
+
+  "Application Deadlines": "आवेदन की अंतिम तिथियाँ",
+  "Upcoming scheme application deadlines": "आगामी योजना आवेदन की अंतिम तिथियाँ",
+  "No upcoming deadlines right now": "अभी कोई आगामी अंतिम तिथि नहीं",
+  "Check back later for scheme application deadlines.": "योजना आवेदन की अंतिम तिथियों के लिए बाद में जाँच करें।",
+  "Deadlines are indicative. Verify on official portals.": "अंतिम तिथियाँ संकेतात्मक हैं। आधिकारिक पोर्टल पर सत्यापित करें।",
+  "days left": "दिन शेष",
+  "Smart Tips": "स्मार्ट टिप्स",
+  "Personalized financial guidance": "वैयक्तिकृत वित्तीय मार्गदर्शन",
+  "Track your saving targets": "अपने बचत लक्ष्यों पर नज़र रखें",
+  "Set a saving target": "बचत लक्ष्य निर्धारित करें",
+  "Add Goal": "लक्ष्य जोड़ें",
+  "Create First Goal": "पहला लक्ष्य बनाएं",
+  "Knowledge & Logs": "ज्ञान और लॉग",
+  "Create a goal to save for emergencies, festivals, or big purchases.": "आपातकालीन, त्योहारों या बड़ी खरीदारी के लिए बचत का लक्ष्य बनाएं।",
+  "Government of India": "भारत सरकार",
+  "Welfare benefits, pension, accident cover for construction workers": "निर्माण श्रमिकों के लिए कल्याण लाभ, पेंशन, दुर्घटना कवर",
+  "Pension, health insurance, accident cover for unorganised workers": "असंगठित श्रमिकों के लिए पेंशन, स्वास्थ्य बीमा, दुर्घटना कवर",
+  "Pension, family pension, education assistance, accident relief": "पेंशन, पारिवारिक पेंशन, शिक्षा सहायता, दुर्घटना राहत",
+  "Pension, health scheme, death benefit, education grant": "पेंशन, स्वास्थ्य योजना, मृत्यु लाभ, शिक्षा अनुदान",
+  "Pension, accident insurance, maternity benefit, scholarship": "पेंशन, दुर्घटना बीमा, मातृत्व लाभ, छात्रवृत्ति",
+  "Check which government schemes you qualify for based on your profile and income.": "जांचें कि आपकी प्रोफ़ाइल और आय के आधार पर आप किन सरकारी योजनाओं के लिए पात्र हैं।",
+  "Keep track of upcoming scheme deadlines so you never miss an application window.": "आगामी योजना की अंतिम तिथियों पर नज़र रखें ताकि आप कभी भी आवेदन विंडो न चूकें।",
+  "Set personal saving targets for emergencies, festivals, or big purchases.": "आपातकाल, त्योहारों या बड़ी खरीदारी के लिए व्यक्तिगत बचत लक्ष्य निर्धारित करें।",
+  "The savings card shows how much to save on good days to cover low-income days automatically.": "बचत कार्ड दिखाता है कि कम आय वाले दिनों को स्वचालित रूप से कवर करने के लिए अच्छे दिनों में कितनी बचत करनी है।",
+  "Track your spending by category and set budgets to stay in control.": "श्रेणी के अनुसार अपने खर्च पर नज़र रखें और नियंत्रण में रहने के लिए बजट निर्धारित करें।",
+  "Generate a portable summary of your verified profile to share with employers or schemes.": "नियोक्ताओं या योजनाओं के साथ साझा करने के लिए अपने सत्यापित प्रोफ़ाइल का एक पोर्टेबल सारांश तैयार करें।",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "आपका दैनिक आय चार्ट अच्छे और बुरे दिनों को दिखाता है, जिससे आपको अपने आय पैटर्न को समझने में मदद मिलती है।"
 };
 
 const TRANSLATIONS_TA = {
@@ -1927,9 +1955,36 @@ const TRANSLATIONS_TA = {
   "Verify using Aadhaar-linked OTP.": "ஆதார் இணைக்கப்பட்ட OTP ஐப் பயன்படுத்தி சரிபார்க்கவும்.",
   "Submit your occupation details and get registered.": "உங்கள் தொழில் விவரங்களைச் சமர்ப்பித்து பதிவு செய்யுங்கள்.",
   "Upload a statement to see spending breakdown": "செலவினச் சரிவைக் காண அறிக்கையைப் பதிவேற்றவும்",
-  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "தானியங்கி செலவு வகைப்பாடு மற்றும் பட்ஜெட் நுண்ணறிவுகளைப் பெற, வங்கி அறிக்கையைப் பதிவேற்றவும்."
-};
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "தானியங்கி செலவு வகைப்பாடு மற்றும் பட்ஜெட் நுண்ணறிவுகளைப் பெற, வங்கி அறிக்கையைப் பதிவேற்றவும்.",
 
+  "Application Deadlines": "விண்ணப்ப காலக்கெடு",
+  "Upcoming scheme application deadlines": "வரவிருக்கும் திட்ட விண்ணப்ப காலக்கெடு",
+  "No upcoming deadlines right now": "இப்போது வரவிருக்கும் காலக்கெடு எதுவும் இல்லை",
+  "Check back later for scheme application deadlines.": "திட்ட விண்ணப்ப காலக்கெடுக்கு பின்னர் சரிபார்க்கவும்.",
+  "Deadlines are indicative. Verify on official portals.": "காலக்கெடு குறிப்பானது. அதிகாரப்பூர்வ போர்ட்டல்களில் சரிபார்க்கவும்.",
+  "days left": "நாட்கள் மீதம்",
+  "Smart Tips": "நுண்ணறிவு உதவிக்குறிப்புகள்",
+  "Personalized financial guidance": "தனிப்பயனாக்கப்பட்ட நிதி வழிகாட்டல்",
+  "Track your saving targets": "உங்கள் சேமிப்பு இலக்குகளைக் கண்காணிக்கவும்",
+  "Set a saving target": "சேமிப்பு இலக்கை அமைக்கவும்",
+  "Add Goal": "இலக்கைச் சேர்க்கவும்",
+  "Create First Goal": "முதல் இலக்கை உருவாக்கவும்",
+  "Knowledge & Logs": "அறிவு & பதிவுகள்",
+  "Create a goal to save for emergencies, festivals, or big purchases.": "அவசரம், பண்டிகைகள் அல்லது பெரிய கொள்முதல்களுக்காக சேமிக்க ஒரு இலக்கை உருவாக்கவும்.",
+  "Government of India": "இந்திய அரசு",
+  "Welfare benefits, pension, accident cover for construction workers": "கட்டுமானத் தொழிலாளர்களுக்கு நலன்புரி நன்மைகள், ஓய்வூதியம், விபத்து கவரேஜ்",
+  "Pension, health insurance, accident cover for unorganised workers": "ஒழுங்கமைக்கப்படாத தொழிலாளர்களுக்கு ஓய்வூதியம், உடல்நலக் காப்பீடு, விபத்து கவரேஜ்",
+  "Pension, family pension, education assistance, accident relief": "ஓய்வூதியம், குடும்ப ஓய்வூதியம், கல்வி உதவி, விபத்து நிவாரணம்",
+  "Pension, health scheme, death benefit, education grant": "ஓய்வூதியம், சுகாதாரத் திட்டம், இறப்பு நன்மை, கல்வி மானியம்",
+  "Pension, accident insurance, maternity benefit, scholarship": "ஓய்வூதியம், விபத்து காப்பீடு, மகப்பேறு நன்மை, உதவித்தொகை",
+  "Check which government schemes you qualify for based on your profile and income.": "உங்கள் சுயவிவரம் மற்றும் வருமானத்தின் அடிப்படையில் எந்த அரசுத் திட்டங்களுக்கு நீங்கள் தகுதியானவர் என்பதைச் சரிபார்க்கவும்.",
+  "Keep track of upcoming scheme deadlines so you never miss an application window.": "வரவிருக்கும் திட்ட காலக்கெடுவைக் கண்காணித்து, விண்ணப்ப சாளரத்தை தவறவிடாதீர்கள்.",
+  "Set personal saving targets for emergencies, festivals, or big purchases.": "அவசரங்கள், பண்டிகைகள் அல்லது பெரிய கொள்முதல்களுக்கு தனிப்பட்ட சேமிப்பு இலக்குகளை அமைக்கவும்.",
+  "The savings card shows how much to save on good days to cover low-income days automatically.": "சேமிப்பு அட்டை, குறைந்த வருமான நாட்களை தானாக ஈடுகட்ட நல்ல நாட்களில் எவ்வளவு சேமிக்க வேண்டும் என்பதைக் காட்டுகிறது.",
+  "Track your spending by category and set budgets to stay in control.": "வகை வாரியாக உங்கள் செலவினங்களைக் கண்காணித்து, கட்டுக்கோப்பாக இருக்க பட்ஜெட்டுகளை அமைக்கவும்.",
+  "Generate a portable summary of your verified profile to share with employers or schemes.": "முதலாளிகள் அல்லது திட்டங்களுடன் பகிர்ந்து கொள்ள உங்கள் சரிபார்க்கப்பட்ட சுயவிவரத்தின் போர்ட்டபிள் சுருக்கத்தை உருவாக்கவும்.",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "உங்கள் தினசரி வருவாய் விளக்கப்படம் நல்ல நாட்கள் மற்றும் கெட்ட நாட்களைக் காட்டுகிறது, உங்கள் வருமான முறைகளைப் புரிந்துகொள்ள உதவுகிறது."
+};
 const TRANSLATIONS_TE = {
   "Kaam Card": "కామ్ కార్డ్",
   "Dashboard": "డాష్‌బోర్డ్",
@@ -2391,9 +2446,36 @@ const TRANSLATIONS_TE = {
   "Verify using Aadhaar-linked OTP.": "ఆధార్-లింక్ చేయబడిన OTPని ఉపయోగించి ధృవీకరించండి.",
   "Submit your occupation details and get registered.": "మీ వృత్తి వివరాలను సమర్పించి నమోదు చేసుకోండి.",
   "Upload a statement to see spending breakdown": "ఖర్చుల విభజనను చూడటానికి స్టేట్‌మెంట్‌ను అప్‌లోడ్ చేయండి",
-  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "ఆటోమేటిక్ ఖర్చు వర్గీకరణ మరియు బడ్జెట్ అంతర్దృష్టులను పొందడానికి బ్యాంక్ స్టేట్‌మెంట్‌ను అప్‌లోడ్ చేయండి."
-};
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "ఆటోమేటిక్ ఖర్చు వర్గీకరణ మరియు బడ్జెట్ అంతర్దృష్టులను పొందడానికి బ్యాంక్ స్టేట్‌మెంట్‌ను అప్‌లోడ్ చేయండి.",
 
+  "Application Deadlines": "దరఖాస్తు గడువులు",
+  "Upcoming scheme application deadlines": "రాబోయే పథకం దరఖాస్తు గడువులు",
+  "No upcoming deadlines right now": "ప్రస్తుతం రాబోయే గడువులు ఏవీ లేవు",
+  "Check back later for scheme application deadlines.": "పథకం దరఖాస్తు గడువుల కోసం తర్వాత తనిఖీ చేయండి.",
+  "Deadlines are indicative. Verify on official portals.": "గడువులు సూచించదగినవి. అధికారిక పోర్టల్‌లలో ధృవీకరించండి.",
+  "days left": "రోజులు మిగిలి ఉన్నాయి",
+  "Smart Tips": "స్మార్ట్ చిట్కాలు",
+  "Personalized financial guidance": "వ్యక్తిగతీకరించిన ఆర్థిక మార్గదర్శకత్వం",
+  "Track your saving targets": "మీ పొదుపు లక్ష్యాలను ట్రాక్ చేయండి",
+  "Set a saving target": "పొదుపు లక్ష్యాన్ని సెట్ చేయండి",
+  "Add Goal": "లక్ష్యాన్ని జోడించండి",
+  "Create First Goal": "మొదటి లక్ష్యాన్ని సృష్టించండి",
+  "Knowledge & Logs": "జ్ఞానం & లాగ్‌లు",
+  "Create a goal to save for emergencies, festivals, or big purchases.": "అత్యవసరాలు, పండుగలు లేదా పెద్ద కొనుగోళ్ల కోసం పొదుపు చేయడానికి ఒక లక్ష్యాన్ని సృష్టించండి.",
+  "Government of India": "భారత ప్రభుత్వం",
+  "Welfare benefits, pension, accident cover for construction workers": "నిర్మాణ కార్మికులకు సంక్షేమ ప్రయోజనాలు, పెన్షన్, ప్రమాద కవరేజ్",
+  "Pension, health insurance, accident cover for unorganised workers": "వ్యవస్థీకృతం కాని కార్మికులకు పెన్షన్, ఆరోగ్య బీమా, ప్రమాద కవరేజ్",
+  "Pension, family pension, education assistance, accident relief": "పెన్షన్, కుటుంబ పెన్షన్, విద్యా సహాయం, ప్రమాద ఉపశమనం",
+  "Pension, health scheme, death benefit, education grant": "పెన్షన్, ఆరోగ్య పథకం, మరణ ప్రయోజనం, విద్య మంజూరు",
+  "Pension, accident insurance, maternity benefit, scholarship": "పెన్షన్, ప్రమాద బీమా, ప్రసూతి ప్రయోజనం, స్కాలర్‌షిప్",
+  "Check which government schemes you qualify for based on your profile and income.": "మీ ప్రొఫైల్ మరియు ఆదాయం ఆధారంగా మీరు ఏ ప్రభుత్వ పథకాలకు అర్హులో తనిఖీ చేయండి.",
+  "Keep track of upcoming scheme deadlines so you never miss an application window.": "రాబోయే పథకం గడువులను ట్రాక్ చేయండి, తద్వారా మీరు దరఖాస్తు విండోను కోల్పోరు.",
+  "Set personal saving targets for emergencies, festivals, or big purchases.": "అత్యవసరాలు, పండుగలు లేదా పెద్ద కొనుగోళ్ల కోసం వ్యక్తిగత పొదుపు లక్ష్యాలను సెట్ చేయండి.",
+  "The savings card shows how much to save on good days to cover low-income days automatically.": "సేవింగ్స్ కార్డ్ తక్కువ ఆదాయ రోజులను స్వయంచాలకంగా కవర్ చేయడానికి మంచి రోజులలో ఎంత పొదుపు చేయాలో చూపిస్తుంది.",
+  "Track your spending by category and set budgets to stay in control.": "వర్గం వారీగా మీ ఖర్చులను ట్రాక్ చేయండి మరియు నియంత్రణలో ఉండటానికి బడ్జెట్‌లను సెట్ చేయండి.",
+  "Generate a portable summary of your verified profile to share with employers or schemes.": "యజమానులు లేదా పథకాలతో భాగస్వామ్యం చేయడానికి మీ ధృవీకరించబడిన ప్రొఫైల్ యొక్క పోర్టబుల్ సారాంశాన్ని రూపొందించండి.",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "మీ రోజువారీ ఆదాయాల చార్ట్ మంచి రోజులు మరియు చెడు రోజులను చూపిస్తుంది, మీ ఆదాయ నమూనాలను అర్థం చేసుకోవడంలో మీకు సహాయపడుతుంది."
+};
 const TRANSLATIONS_MR = {
   "Kaam Card": "काम कार्ड",
   "Dashboard": "डॅशबोर्ड",
@@ -2858,7 +2940,35 @@ const TRANSLATIONS_MR = {
   "Verify using Aadhaar-linked OTP.": "आधार-लिंक केलेला OTP वापरून पडताळणी करा.",
   "Submit your occupation details and get registered.": "तुमचा व्यवसाय तपशील सबमिट करा आणि नोंदणी करा.",
   "Upload a statement to see spending breakdown": "खर्चाचे ब्रेकडाउन पाहण्यासाठी विधान अपलोड करा",
-  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "स्वयंचलित खर्च वर्गीकरण आणि अंदाजपत्रक अंतर्दृष्टी मिळविण्यासाठी बँक स्टेटमेंट अपलोड करा."
+  "Upload a bank statement to get automatic expense categorization and budgeting insights.": "स्वयंचलित खर्च वर्गीकरण आणि अंदाजपत्रक अंतर्दृष्टी मिळविण्यासाठी बँक स्टेटमेंट अपलोड करा.",
+
+  "Application Deadlines": "अर्जाची अंतिम मुदत",
+  "Upcoming scheme application deadlines": "आगामी योजना अर्जाची अंतिम मुदत",
+  "No upcoming deadlines right now": "आत्ता कोणतीही आगामी अंतिम मुदत नाही",
+  "Check back later for scheme application deadlines.": "योजना अर्जाच्या अंतिम मुदतीसाठी नंतर तपासा.",
+  "Deadlines are indicative. Verify on official portals.": "अंतिम मुदत सूचक आहे. अधिकृत पोर्टलवर सत्यापित करा.",
+  "days left": "दिवस शिल्लक",
+  "Smart Tips": "स्मार्ट टिप्स",
+  "Personalized financial guidance": "वैयक्तिकृत आर्थिक मार्गदर्शन",
+  "Track your saving targets": "तुमच्या बचत लक्ष्यांचा मागोवा घ्या",
+  "Set a saving target": "बचत लक्ष्य सेट करा",
+  "Add Goal": "लक्ष्य जोडा",
+  "Create First Goal": "पहिले लक्ष्य तयार करा",
+  "Knowledge & Logs": "ज्ञान आणि लॉग",
+  "Create a goal to save for emergencies, festivals, or big purchases.": "आणीबाणी, सण किंवा मोठ्या खरेदीसाठी बचत करण्याचे लक्ष्य तयार करा.",
+  "Government of India": "भारत सरकार",
+  "Welfare benefits, pension, accident cover for construction workers": "बांधकाम कामगारांसाठी कल्याण लाभ, पेन्शन, अपघात कव्हर",
+  "Pension, health insurance, accident cover for unorganised workers": "असंघटित कामगारांसाठी पेन्शन, आरोग्य विमा, अपघात कव्हर",
+  "Pension, family pension, education assistance, accident relief": "पेन्शन, कुटुंब पेन्शन, शिक्षण सहाय्य, अपघात मदत",
+  "Pension, health scheme, death benefit, education grant": "पेन्शन, आरोग्य योजना, मृत्यू लाभ, शिक्षण अनुदान",
+  "Pension, accident insurance, maternity benefit, scholarship": "पेन्शन, अपघात विमा, मातृत्व लाभ, शिष्यवृत्ती",
+  "Check which government schemes you qualify for based on your profile and income.": "तुमच्या प्रोफाइल आणि उत्पन्नाच्या आधारावर तुम्ही कोणत्या सरकारी योजनांसाठी पात्र आहात ते तपासा.",
+  "Keep track of upcoming scheme deadlines so you never miss an application window.": "आगामी योजनेच्या अंतिम मुदतीचा मागोवा ठेवा जेणेकरून तुम्ही अर्ज विंडो कधीही चुकवू नका.",
+  "Set personal saving targets for emergencies, festivals, or big purchases.": "आणीबाणी, सण किंवा मोठ्या खरेदीसाठी वैयक्तिक बचत लक्ष्य सेट करा.",
+  "The savings card shows how much to save on good days to cover low-income days automatically.": "बचत कार्ड दर्शविते की कमी उत्पन्नाच्या दिवसांना आपोआप कव्हर करण्यासाठी चांगल्या दिवसात किती बचत करावी.",
+  "Track your spending by category and set budgets to stay in control.": "श्रेणीनुसार तुमचा खर्च ट्रॅक करा आणि नियंत्रणात राहण्यासाठी बजेट सेट करा.",
+  "Generate a portable summary of your verified profile to share with employers or schemes.": "नियोक्ते किंवा योजनांसह सामायिक करण्यासाठी तुमच्या सत्यापित प्रोफाइलचा पोर्टेबल सारांश तयार करा.",
+  "Your daily earnings chart shows good days and bad days, helping you understand your income patterns.": "तुमचा दैनिक कमाई चार्ट चांगले आणि वाईट दिवस दर्शवितो, ज्यामुळे तुम्हाला तुमच्या उत्पन्नाचे नमुने समजण्यास मदत होते."
 };
 
 
@@ -3474,7 +3584,7 @@ function processCsv(csvText, sourceMeta = {}) {
 
 function dateLabel(iso) {
   const date = new Date(`${iso}T00:00:00.000Z`);
-  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+  return date.toLocaleDateString(locale(), { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 function currentName() {
@@ -4734,7 +4844,7 @@ function renderDashboard(activeView = "Dashboard") {
                     <strong>${escapeHtml(t(s.shortName || s.name))}</strong>
                     <span style="margin-left:8px;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;background:${isUrgent ? 'var(--red-soft)' : isWarning ? 'var(--accent-soft)' : 'var(--green-soft)'};color:${isUrgent ? 'var(--red)' : isWarning ? 'var(--accent)' : 'var(--green)'}">${s.daysLeft} ${t("days left")}</span>
                   </div>
-                  <span style="color:var(--muted);font-size:0.75rem">${s.deadlineDate.toLocaleDateString("en-IN")}</span>
+                  <span style="color:var(--muted);font-size:0.75rem">${s.deadlineDate.toLocaleDateString(locale())}</span>
                 </li>
               `;
             }).join("")}
